@@ -46,10 +46,15 @@ npm run dev
 
 ## Vercel Frontend Deployment
 
-Deploy the dashboard from the `frontend` directory on Vercel and set:
+Deploy the repository root on Vercel with the Services preset. The root `vercel.json` maps:
+
+- Frontend: `/`
+- Backend: `/_/backend`
+
+Set:
 
 ```text
-NEXT_PUBLIC_API_URL=https://your-live-backend-domain.com
+NEXT_PUBLIC_API_URL=/_/backend
 ```
 
 See `docs/VERCEL_DEPLOYMENT.md` for the full safe deploy checklist.
