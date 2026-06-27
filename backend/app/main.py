@@ -1,23 +1,34 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 import sys
+import traceback
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 backend_root = Path(__file__).resolve().parents[1]
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
+startup_error: str | None = None
 
-from app.api.v1.router import api_router
-from app.core.config import settings
-from app.core.logging import configure_logging
-from app.services.media_stream_service import media_stream_service
+try:
+    from app.api.v1.router import api_router
+    from app.core.config import settings
+    from app.core.logging import configure_logging
+    from app.services.media_stream_service import media_stream_service
+except Exception:
+    api_router = None
+    settings = None
+    configure_logging = None
+    media_stream_service = None
+    startup_error = traceback.format_exc()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    configure_logging()
+    if configure_logging:
+        configure_logging()
     yield
 
 
@@ -28,24 +39,35 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-app.include_router(api_router, prefix="/api/v1")
+if api_router:
+    app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])
-async def health_check() -> dict[str, str]:
+async def health_check() -> dict[str, str | bool]:
+    if startup_error:
+        return {
+            "status": "degraded",
+            "service": "rubi-backend",
+            "startup_error": startup_error[-3000:],
+        }
     return {"status": "ok", "service": "rubi-backend"}
 
 
 @app.websocket("/voice/{call_id}")
 async def twilio_voice_stream(call_id: str, websocket: WebSocket) -> None:
+    if not media_stream_service:
+        await websocket.close(code=1011)
+        return
     try:
         await media_stream_service.handle_twilio_stream(call_id, websocket)
     except WebSocketDisconnect:
