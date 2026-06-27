@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         {mobileMenuOpen ? (
-          <nav className="mobile-menu-scroll grid max-h-[65vh] gap-1 overflow-y-auto border-t border-border p-3">
+          <nav className="mobile-menu-scroll grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto overscroll-contain border-t border-border p-3 pb-5">
             {secondaryMobileNav.map((item) => {
               const active = item.href === "/" ? pathname === item.href : pathname.startsWith(item.href);
               return (
@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "flex h-11 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground",
+                    "flex h-11 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                     active && "bg-accent text-accent-foreground",
                   )}
                 >
@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
                   "flex min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-medium text-muted-foreground",
-                  active && "text-primary",
+                  active && "bg-accent/70 text-primary",
                 )}
               >
                 <item.icon className="h-4 w-4" />
