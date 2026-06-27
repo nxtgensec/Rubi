@@ -1,16 +1,18 @@
 import json
 from datetime import UTC, datetime
+import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
+from app.core.config import settings
 from app.schemas.intake import LeadDetails, StoredCall, StoredTranscriptTurn
 
 
 class StorageService:
     def __init__(self) -> None:
-        self.data_dir = Path(__file__).resolve().parents[3] / "data"
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir = self._data_dir()
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.store_path = self.data_dir / "rubi_store.json"
 
     def list_calls(self) -> list[StoredCall]:
@@ -108,6 +110,13 @@ class StorageService:
             json.dump(data, tmp, indent=2, ensure_ascii=False)
             temp_path = Path(tmp.name)
         temp_path.replace(self.store_path)
+
+    def _data_dir(self) -> Path:
+        if settings.rubi_data_dir:
+            return Path(settings.rubi_data_dir)
+        if os.environ.get("VERCEL"):
+            return Path("/tmp/rubi-data")
+        return Path(__file__).resolve().parents[3] / "data"
 
 
 storage_service = StorageService()

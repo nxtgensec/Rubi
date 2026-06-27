@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str | None = None
     supabase_access_token: str | None = None
     cors_origins: str = '["http://localhost:3000","http://127.0.0.1:3000"]'
+    rubi_data_dir: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
