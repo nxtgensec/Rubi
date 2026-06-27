@@ -1,0 +1,25 @@
+app:
+  name: Rubi
+  default_language: te-IN
+  fallback_language: en-IN
+
+llm:
+  default_provider: qwen3
+  providers:
+    - qwen3
+    - openai
+    - anthropic
+    - gemini
+    - ollama
+    - openrouter
+
+voice:
+  stt_provider: faster-whisper
+  tts_provider: piper
+  interruption_enabled: true
+  vad_enabled: true
+
+security:
+  jwt_enabled: true
+  rbac_enabled: true
+  audit_logs_enabled: true
