@@ -6,12 +6,10 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCallTime, getCalls, recordingUrl } from "@/lib/calls";
+import { formatCallTime, recordingUrl, type Call } from "@/lib/calls";
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  const calls = await getCalls();
+export default function Home() {
+  const calls: Call[] = [];
   const latestCall = calls[0];
   const activeCalls = calls.filter((call) => ["collecting", "qualified"].includes(call.status)).length;
   const agreedCalls = calls.filter((call) => call.sentiment === "agreed").length;
