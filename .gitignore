@@ -1,4 +1,6 @@
 .env
+.env_vercel
+.env*.local
 .venv/
 __pycache__/
 .pytest_cache/
