@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 
 from pydantic import Field
@@ -21,7 +22,20 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
     supabase_access_token: str | None = None
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: str = '["http://localhost:3000","http://127.0.0.1:3000"]'
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        value = self.cors_origins.strip()
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return [str(origin).strip() for origin in parsed if str(origin).strip()]
+        except json.JSONDecodeError:
+            pass
+        return [origin.strip() for origin in value.split(",") if origin.strip()]
 
     model_config = SettingsConfigDict(
         env_file=("../.env", ".env"),
