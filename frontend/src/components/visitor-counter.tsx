@@ -84,15 +84,15 @@ export function VisitorCounter() {
   }, []);
 
   return (
-    <div className="fixed bottom-20 left-3 z-50 max-w-[calc(100vw-1.5rem)] rounded-lg border border-border bg-card/95 px-3 py-2 text-xs text-card-foreground shadow-lg backdrop-blur lg:bottom-3">
-      <div className="flex items-center gap-2">
-        <Activity className="h-3.5 w-3.5 text-primary" />
+    <div className="fixed bottom-[4.9rem] left-2 z-30 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-card/95 px-2 py-1.5 text-[10px] text-card-foreground shadow-lg backdrop-blur sm:left-3 sm:px-3 sm:py-2 sm:text-xs lg:bottom-3">
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <Activity className="h-3 w-3 text-primary sm:h-3.5 sm:w-3.5" />
         <span className="font-medium">Visitors</span>
-        <span className="text-muted-foreground">
+        <span className="hidden text-muted-foreground min-[380px]:inline">
           {status === "offline" ? "connection issue" : status === "loading" ? "syncing" : dateLabel}
         </span>
       </div>
-      <div className="mt-1 grid grid-cols-2 gap-3 font-mono">
+      <div className="mt-0.5 grid grid-cols-2 gap-2 font-mono sm:mt-1 sm:gap-3">
         <span>Today {stats?.today_visits ?? 0}</span>
         <span>Total {stats?.total_visits ?? 0}</span>
       </div>

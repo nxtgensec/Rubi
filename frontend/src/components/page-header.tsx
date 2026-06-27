@@ -12,10 +12,10 @@ export function PageHeader({
   showRefresh?: boolean;
 }) {
   return (
-    <header className="sticky top-14 z-20 flex min-h-16 flex-col items-start justify-between gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:flex-row md:items-center md:px-6 lg:top-0">
-      <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-normal">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
+    <header className="sticky top-14 z-20 flex min-h-16 w-full max-w-full flex-col items-start justify-between gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:flex-row md:items-center md:px-6 lg:top-0">
+      <div className="min-w-0 max-w-full">
+        <h1 className="text-lg font-semibold tracking-normal sm:text-xl">{title}</h1>
+        <p className="max-w-full text-sm leading-5 text-muted-foreground">{description}</p>
       </div>
       {showRefresh ? (
         <Button variant="secondary">

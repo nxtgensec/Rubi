@@ -3,11 +3,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-lg border border-border bg-card text-card-foreground", className)} {...props} />;
+  return <div className={cn("min-w-0 max-w-full rounded-lg border border-border bg-card text-card-foreground", className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col gap-1.5 p-5", className)} {...props} />;
+  return <div className={cn("flex min-w-0 flex-col gap-1.5 p-5", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -15,9 +15,9 @@ export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHead
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("text-sm text-muted-foreground", className)} {...props} />;
+  return <p className={cn("break-words text-sm text-muted-foreground", className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("overflow-x-auto p-5 pt-0", className)} {...props} />;
+  return <div className={cn("min-w-0 max-w-full overflow-x-auto p-5 pt-0", className)} {...props} />;
 }

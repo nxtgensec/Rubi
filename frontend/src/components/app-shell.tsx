@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const secondaryMobileNav = navigation.filter((item) => !primaryMobileLabels.has(item.label));
 
   return (
-    <main className="min-h-screen bg-background pb-20 text-foreground lg:pb-0">
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background pb-28 text-foreground lg:pb-0">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] overflow-y-auto border-r border-border bg-card/95 backdrop-blur lg:block">
           <div className="flex h-16 items-center border-b border-border px-5">
             <div>
@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
       </aside>
 
-      <div className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur lg:hidden">
+      <div className="sticky top-0 z-30 w-full max-w-full border-b border-border bg-card/95 backdrop-blur lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
           <div>
             <div className="text-base font-semibold">Rubi</div>
@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ) : null}
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid h-16 grid-cols-5 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid h-[4.25rem] grid-cols-5 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur lg:hidden">
         {primaryMobileNav.map((item) => {
             const active = item.href === "/" ? pathname === item.href : pathname.startsWith(item.href);
             return (
@@ -114,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         })}
       </nav>
 
-      <section className="min-w-0 lg:pl-[260px]">{children}</section>
+      <section className="w-full min-w-0 max-w-full lg:pl-[260px]">{children}</section>
     </main>
   );
 }
