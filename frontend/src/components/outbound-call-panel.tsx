@@ -53,8 +53,7 @@ export function OutboundCallPanel() {
       });
 
       if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(detail || `Call request failed with ${response.status}`);
+        throw new Error(await errorMessage(response));
       }
 
       const result = (await response.json()) as { provider_call_id?: string };
@@ -104,4 +103,15 @@ export function OutboundCallPanel() {
       </CardContent>
     </Card>
   );
+}
+
+async function errorMessage(response: Response) {
+  try {
+    const data = (await response.json()) as { detail?: string };
+    if (data.detail) {
+      return data.detail;
+    }
+  } catch {
+  }
+  return `Call request failed with ${response.status}`;
 }

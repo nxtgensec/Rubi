@@ -1,3 +1,5 @@
+import httpx
+from app.core.config import settings
 from app.schemas.telephony import OutboundCallRequest
 from app.services.twilio_service import TwilioConfigurationError, twilio_service
 from fastapi import APIRouter, Form, HTTPException, Request, Response
@@ -56,6 +58,11 @@ async def outbound_call(request: Request, payload: OutboundCallRequest) -> dict[
         )
     except TwilioConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        detail = _twilio_error_detail(exc)
+        raise HTTPException(status_code=502, detail=detail) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Could not connect to Twilio.") from exc
     return {"status": "queued", "provider_call_id": provider_call_id}
 
 
@@ -66,7 +73,20 @@ def _callback_base_url(request: Request) -> str:
         or request.headers.get("host")
         or request.url.netloc
     )
+    if host.startswith(("127.0.0.1", "localhost")):
+        public_backend_url = (settings.public_backend_url or "").rstrip("/")
+        if public_backend_url and "your-public-rubi-domain.example" not in public_backend_url:
+            return public_backend_url
     base_url = f"{proto}://{host}".rstrip("/")
     if "/_/backend/" in request.url.path and "/_/backend" not in base_url:
         base_url = f"{base_url}/_/backend"
     return base_url
+
+
+def _twilio_error_detail(exc: httpx.HTTPStatusError) -> str:
+    try:
+        data = exc.response.json()
+    except ValueError:
+        return exc.response.text or "Twilio rejected the call request."
+    message = data.get("message") if isinstance(data, dict) else None
+    return str(message or "Twilio rejected the call request.")
