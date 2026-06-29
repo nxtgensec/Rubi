@@ -8,7 +8,7 @@ router = APIRouter()
 @router.post("/voice")
 async def voice_webhook(request: Request) -> Response:
     form = {key: value for key, value in (await request.form()).items() if isinstance(value, str)}
-    for key in ("OutboundTo", "OutboundFrom"):
+    for key in ("OutboundTo", "OutboundFrom", "Prompt", "PromptLanguage"):
         value = request.query_params.get(key)
         if value:
             form[key] = value

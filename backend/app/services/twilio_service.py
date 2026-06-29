@@ -1,3 +1,4 @@
+import asyncio
 import os
 from html import escape
 from urllib.parse import urlencode
@@ -54,16 +55,32 @@ class TwilioService:
                 updated_at=telephony_service.get_started_at(instructions.call_id),
             )
         )
-        prompt = await self._initial_prompt_from_gemini(instructions.call_id)
-        await self._start_twilio_recording(
-            provider_call_id=form.get("CallSid", ""),
-            call_id=instructions.call_id,
-            callback_base_url=callback_base_url,
+        cached_prompt = gemini_agent_service.get_cached_start_prompt()
+        prompt, prompt_language = (
+            (form.get("Prompt"), form.get("PromptLanguage") or instructions.language)
+            if form.get("Prompt")
+            else cached_prompt
+        ) or (
+            self._fallback_initial_prompt(),
+            instructions.language,
+        )
+        storage_service.append_transcript(
+            instructions.call_id,
+            "assistant",
+            prompt,
+            prompt_language,
+        )
+        asyncio.create_task(
+            self._start_twilio_recording(
+                provider_call_id=form.get("CallSid", ""),
+                call_id=instructions.call_id,
+                callback_base_url=callback_base_url,
+            )
         )
         return self._build_voice_twiml(
             call_id=instructions.call_id,
             prompt=prompt,
-            language=instructions.language,
+            language=prompt_language,
             callback_base_url=callback_base_url,
         )
 
@@ -136,10 +153,26 @@ class TwilioService:
         session = await telephony_service.start_outbound_call(
             payload.model_copy(update={"provider": "twilio"})
         )
+        prompt_query: dict[str, str] = {}
+        try:
+            prompt, prompt_language = await gemini_agent_service.prewarm_start_prompt(
+                caller_number=payload.to_number,
+                to_number=settings.twilio_phone_number or payload.from_number,
+            )
+            prompt_query = {
+                "Prompt": prompt,
+                "PromptLanguage": prompt_language,
+            }
+        except (RuntimeError, httpx.HTTPError, ValueError, KeyError):
+            pass
         voice_url = self._backend_url("/api/v1/twilio/voice", callback_base_url=callback_base_url)
         outbound_from = settings.twilio_phone_number or payload.from_number
         query = urlencode(
-            {"OutboundTo": payload.to_number, "OutboundFrom": outbound_from},
+            {
+                "OutboundTo": payload.to_number,
+                "OutboundFrom": outbound_from,
+                **prompt_query,
+            },
         )
         voice_url = f"{voice_url}?{query}"
         status_url = self._backend_url("/api/v1/twilio/status", callback_base_url=callback_base_url)

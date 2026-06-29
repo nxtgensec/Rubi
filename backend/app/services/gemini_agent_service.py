@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -9,6 +10,29 @@ from app.services.website_knowledge_service import website_knowledge_service
 
 
 class GeminiAgentService:
+    def __init__(self) -> None:
+        self._cached_start_prompt: tuple[str, str] | None = None
+
+    def get_cached_start_prompt(self) -> tuple[str, str] | None:
+        return self._cached_start_prompt
+
+    async def prewarm_start_prompt(self, caller_number: str, to_number: str) -> tuple[str, str]:
+        call = StoredCall(
+            id="prompt-cache",
+            provider="gemini",
+            provider_call_id="prompt-cache",
+            from_number=caller_number,
+            to_number=to_number,
+            status="in_progress",
+            lead=LeadDetails(phone=caller_number),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        _lead, reply, language, _should_end = await self.start_conversation(call)
+        if reply:
+            self._cached_start_prompt = (reply, language)
+        return reply, language
+
     async def start_conversation(self, call: StoredCall) -> tuple[LeadDetails, str, str, bool]:
         return await self._generate(
             call=call,
