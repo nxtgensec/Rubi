@@ -29,7 +29,11 @@ type StoredCall = {
     name: string | null;
     phone: string | null;
     need: string | null;
+    project_type: string | null;
     budget: string | null;
+    timeline: string | null;
+    preferred_language: string | null;
+    callback_notes: string | null;
     language: string;
     agreed: boolean | null;
     status: string;
@@ -153,8 +157,12 @@ export default async function CallDetailPage({
               <CardContent className="grid gap-3 text-sm">
                 <InfoRow label="Name" value={call.lead.name ?? "Not captured"} />
                 <InfoRow label="Phone" value={call.lead.phone ?? call.from_number} />
+                <InfoRow label="Preferred language" value={call.lead.preferred_language ?? call.lead.language} />
+                <InfoRow label="Project type" value={call.lead.project_type ?? "Not captured"} />
                 <InfoRow label="Need" value={call.lead.need ?? "Not captured"} />
                 <InfoRow label="Budget" value={call.lead.budget ?? "Not captured"} />
+                <InfoRow label="Timeline" value={call.lead.timeline ?? "Not captured"} />
+                <InfoRow label="Callback notes" value={call.lead.callback_notes ?? "Not captured"} />
                 <InfoRow label="Agreement" value={agreementText(call.lead.agreed)} />
               </CardContent>
             </Card>

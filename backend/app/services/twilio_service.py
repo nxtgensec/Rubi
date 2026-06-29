@@ -1,5 +1,5 @@
-from html import escape
 import os
+from html import escape
 
 import httpx
 from app.core.config import settings
@@ -15,7 +15,11 @@ class TwilioConfigurationError(RuntimeError):
 
 
 class TwilioService:
-    async def handle_inbound_webhook(self, form: dict[str, str], callback_base_url: str | None = None) -> str:
+    async def handle_inbound_webhook(
+        self,
+        form: dict[str, str],
+        callback_base_url: str | None = None,
+    ) -> str:
         instructions = await telephony_service.receive_inbound_call(
             InboundCallRequest(
                 provider="twilio",
@@ -98,7 +102,7 @@ class TwilioService:
                 callback_base_url=callback_base_url,
             )
 
-        response = intake_agent_service.process_caller_message(
+        response = await intake_agent_service.process_caller_message(
             call_id=call_id,
             message=speech_result,
             from_number=call.from_number,
@@ -179,10 +183,8 @@ class TwilioService:
     ) -> str:
         prompt = (
             "Namaskaram, nenu Rubi nundi maatladutunna. "
-            "Mee web development project kosam help cheyyadaniki call chestunna. "
-            "Mee peru, meeku website aa ecommerce aa custom web app aa, "
-            "mariyu mee budget range cheppandi. Meeru Telugu, English, "
-            "leda Tenglish lo maatladachu."
+            "Mee web development project gurinchi help chesthanu. "
+            "First, meeru Telugu, English, leda Tenglish lo edi comfortable?"
         )
         return self._continue_gather_twiml(
             call_id=call_id,
@@ -232,7 +234,11 @@ class TwilioService:
         )
 
     def _backend_url(self, path: str, callback_base_url: str | None = None) -> str:
-        base_url = callback_base_url or os.getenv("PUBLIC_BACKEND_URL") or settings.public_backend_url
+        base_url = (
+            callback_base_url
+            or os.getenv("PUBLIC_BACKEND_URL")
+            or settings.public_backend_url
+        )
         base_url = base_url.rstrip("/")
         if os.getenv("VERCEL") and "/_/backend" not in base_url:
             base_url = f"{base_url}/_/backend"

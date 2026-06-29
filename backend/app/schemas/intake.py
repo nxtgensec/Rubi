@@ -8,7 +8,11 @@ class LeadDetails(BaseModel):
     name: str | None = None
     phone: str | None = None
     need: str | None = None
+    project_type: str | None = None
     budget: str | None = None
+    timeline: str | None = None
+    preferred_language: str | None = None
+    callback_notes: str | None = None
     language: str = "te-IN"
     agreed: bool | None = None
     status: str = "collecting"

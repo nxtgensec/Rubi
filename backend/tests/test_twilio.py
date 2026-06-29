@@ -18,7 +18,7 @@ def test_twilio_voice_webhook_returns_twiml() -> None:
     assert "<Response>" in response.text
     assert "<Gather" in response.text
     assert "nenu Rubi nundi maatladutunna" in response.text
-    assert "budget range cheppandi" in response.text
+    assert "Telugu, English, leda Tenglish" in response.text
 
 
 def test_twilio_gather_stores_readable_lead_details() -> None:

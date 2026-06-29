@@ -1,8 +1,8 @@
 import json
-from datetime import UTC, datetime
 import os
-from pathlib import Path
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 from urllib.parse import quote
@@ -19,7 +19,11 @@ class StorageService:
         self.store_path = self.data_dir / "rubi_store.json"
         self.supabase_url = (settings.supabase_url or "").rstrip("/")
         self.supabase_key = settings.supabase_service_role_key
-        self.supabase_enabled = bool(self.supabase_url and self.supabase_key and "pytest" not in sys.modules)
+        self.supabase_enabled = bool(
+            self.supabase_url
+            and self.supabase_key
+            and "pytest" not in sys.modules
+        )
         self._migrate_local_calls_to_supabase()
 
     def list_calls(self) -> list[StoredCall]:
@@ -130,8 +134,16 @@ class StorageService:
             parts.append(f"Caller name: {lead.name}")
         if lead.need:
             parts.append(f"Need: {lead.need}")
+        if lead.project_type:
+            parts.append(f"Project type: {lead.project_type}")
         if lead.budget:
             parts.append(f"Budget: {lead.budget}")
+        if lead.timeline:
+            parts.append(f"Timeline: {lead.timeline}")
+        if lead.preferred_language:
+            parts.append(f"Preferred language: {lead.preferred_language}")
+        if lead.callback_notes:
+            parts.append(f"Callback notes: {lead.callback_notes}")
         if lead.agreed is True:
             parts.append("Agreement: agreed to be contacted by the team")
         elif lead.agreed is False:

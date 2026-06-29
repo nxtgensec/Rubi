@@ -1,12 +1,19 @@
 import re
 
+import httpx
 from app.schemas.intake import LeadDetails
+from app.services.gemini_agent_service import gemini_agent_service
 from app.services.storage_service import storage_service
 from app.services.website_knowledge_service import website_knowledge_service
 
 
 class IntakeAgentService:
-    def process_caller_message(self, call_id: str, message: str, from_number: str) -> str:
+    async def process_caller_message(
+        self,
+        call_id: str,
+        message: str,
+        from_number: str,
+    ) -> str:
         call = storage_service.get_call(call_id)
         if not call:
             raise KeyError(call_id)
@@ -16,6 +23,23 @@ class IntakeAgentService:
         call = storage_service.get_call(call_id)
         if not call:
             raise KeyError(call_id)
+
+        try:
+            lead, response, response_language, _should_end = await gemini_agent_service.process(
+                call,
+                message,
+            )
+            lead.phone = lead.phone or from_number
+            lead.language = response_language
+            storage_service.update_lead(call_id, lead)
+            stored_call = storage_service.get_call(call_id)
+            if stored_call:
+                stored_call.language = response_language
+                storage_service.upsert_call(stored_call)
+            storage_service.append_transcript(call_id, "assistant", response, response_language)
+            return response
+        except (RuntimeError, httpx.HTTPError, ValueError, KeyError):
+            pass
 
         lead = self.extract_lead_details(call.lead, message, from_number, language)
         storage_service.update_lead(call_id, lead)
