@@ -39,6 +39,7 @@ class IntakeAgentService:
             storage_service.append_transcript(call_id, "assistant", response, response_language)
             return response
         except (RuntimeError, httpx.HTTPError, ValueError, KeyError):
+            # Emergency fallback only. Normal live calls are fully Gemini-driven.
             pass
 
         lead = self.extract_lead_details(call.lead, message, from_number, language)

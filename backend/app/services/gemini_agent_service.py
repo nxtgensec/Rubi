@@ -9,13 +9,39 @@ from app.services.website_knowledge_service import website_knowledge_service
 
 
 class GeminiAgentService:
+    async def start_conversation(self, call: StoredCall) -> tuple[LeadDetails, str, str, bool]:
+        return await self._generate(
+            call=call,
+            message="CALL_STARTED",
+            event="call_started",
+        )
+
+    async def handle_no_speech(self, call: StoredCall) -> tuple[LeadDetails, str, str, bool]:
+        return await self._generate(
+            call=call,
+            message="NO_CLEAR_SPEECH_DETECTED",
+            event="no_speech_detected",
+        )
+
     async def process(self, call: StoredCall, message: str) -> tuple[LeadDetails, str, str, bool]:
+        return await self._generate(
+            call=call,
+            message=message,
+            event="caller_message",
+        )
+
+    async def _generate(
+        self,
+        call: StoredCall,
+        message: str,
+        event: str,
+    ) -> tuple[LeadDetails, str, str, bool]:
         if "pytest" in sys.modules:
             raise RuntimeError("Gemini is disabled during tests")
         if not settings.gemini_api_key:
             raise RuntimeError("Gemini API key is not configured")
 
-        payload = self._request_payload(call, message)
+        payload = self._request_payload(call, message, event)
         try:
             raw = await self._call_interactions(payload)
         except httpx.HTTPStatusError as exc:
@@ -35,7 +61,7 @@ class GeminiAgentService:
         }
         return lead, reply, language, should_end
 
-    def _request_payload(self, call: StoredCall, message: str) -> dict[str, Any]:
+    def _request_payload(self, call: StoredCall, message: str, event: str) -> dict[str, Any]:
         transcript = [
             {
                 "role": turn.role,
@@ -51,6 +77,7 @@ class GeminiAgentService:
             "input": json.dumps(
                 {
                     "business": "Rubi web development team",
+                    "event": event,
                     "caller_number": call.from_number,
                     "current_lead": call.lead.model_dump(),
                     "latest_caller_message": message,
@@ -198,12 +225,17 @@ class GeminiAgentService:
             "You are Rubi, a polite, humble female voice employee for web development.",
             "Primary behavior:",
             "- First ask the caller's comfortable language: Telugu, English, or Tenglish.",
+            "- On event call_started, introduce Rubi and ask only language.",
+            "- The call_started reply must be in natural Telugu/Tenglish using Latin letters.",
+            "- On event no_speech_detected, politely say audio was not clear and ask again.",
             "- After they answer, continue in that language for the full call.",
             "- Telugu must be natural and accurate.",
             "- For phone TTS, always reply in simple spoken Telugu using Latin letters.",
             "- Do not reply in Telugu script; Twilio voice must be able to pronounce it.",
             "- Be warm and human, but keep every response short for a phone call.",
             "- Ask one question at a time.",
+            "- Do not repeat the exact same wording from the previous assistant turn.",
+            "- Use the transcript to decide the next action dynamically.",
             "- Gather: name, phone, preferred language, project type, need, budget range,",
             "  timeline, callback notes, and callback agreement.",
             "- Handle: websites, landing pages, ecommerce, booking systems, dashboards,",

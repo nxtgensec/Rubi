@@ -6,6 +6,7 @@ import httpx
 from app.core.config import settings
 from app.schemas.intake import LeadDetails, StoredCall
 from app.schemas.telephony import InboundCallRequest, OutboundCallRequest, RecordingUpdate
+from app.services.gemini_agent_service import gemini_agent_service
 from app.services.intake_agent_service import intake_agent_service
 from app.services.storage_service import storage_service
 from app.services.telephony_service import telephony_service
@@ -53,6 +54,7 @@ class TwilioService:
                 updated_at=telephony_service.get_started_at(instructions.call_id),
             )
         )
+        prompt = await self._initial_prompt_from_gemini(instructions.call_id)
         await self._start_twilio_recording(
             provider_call_id=form.get("CallSid", ""),
             call_id=instructions.call_id,
@@ -60,7 +62,7 @@ class TwilioService:
         )
         return self._build_voice_twiml(
             call_id=instructions.call_id,
-            greeting=instructions.greeting,
+            prompt=prompt,
             language=instructions.language,
             callback_base_url=callback_base_url,
         )
@@ -100,13 +102,11 @@ class TwilioService:
 
         speech_result = form.get("SpeechResult", "").strip()
         if not speech_result:
+            prompt, language = await self._no_speech_prompt_from_gemini(call)
             return self._continue_gather_twiml(
                 call_id=call_id,
-                prompt=(
-                    "Sorry, clear ga vinipinchaledu. Mee peru, web development requirement, "
-                    "budget cheppagalara?"
-                ),
-                language=call.language,
+                prompt=prompt,
+                language=language,
                 callback_base_url=callback_base_url,
             )
 
@@ -198,20 +198,56 @@ class TwilioService:
     def _build_voice_twiml(
         self,
         call_id: str,
-        greeting: str,
+        prompt: str,
         language: str,
         callback_base_url: str | None = None,
     ) -> str:
-        prompt = (
-            "Namaskaram, nenu Rubi nundi maatladutunna. "
-            "Mee web development project gurinchi help chesthanu. "
-            "First, meeru Telugu, English, leda Tenglish lo edi comfortable?"
-        )
         return self._continue_gather_twiml(
             call_id=call_id,
             prompt=prompt,
             language=language,
             callback_base_url=callback_base_url,
+        )
+
+    async def _initial_prompt_from_gemini(self, call_id: str) -> str:
+        call = storage_service.get_call(call_id)
+        if not call:
+            return self._fallback_initial_prompt()
+        try:
+            lead, prompt, language, _should_end = await gemini_agent_service.start_conversation(
+                call,
+            )
+            storage_service.update_lead(call_id, lead)
+            call = storage_service.get_call(call_id)
+            if call:
+                call.language = language
+                storage_service.upsert_call(call)
+            storage_service.append_transcript(call_id, "assistant", prompt, language)
+            return prompt
+        except (RuntimeError, httpx.HTTPError, ValueError, KeyError):
+            prompt = self._fallback_initial_prompt()
+            storage_service.append_transcript(call_id, "assistant", prompt, call.language)
+            return prompt
+
+    async def _no_speech_prompt_from_gemini(self, call: StoredCall) -> tuple[str, str]:
+        try:
+            lead, prompt, language, _should_end = await gemini_agent_service.handle_no_speech(call)
+            storage_service.update_lead(call.id, lead)
+            stored_call = storage_service.get_call(call.id)
+            if stored_call:
+                stored_call.language = language
+                storage_service.upsert_call(stored_call)
+            storage_service.append_transcript(call.id, "assistant", prompt, language)
+            return prompt, language
+        except (RuntimeError, httpx.HTTPError, ValueError, KeyError):
+            prompt = "Sorry, clear ga vinipinchaledu. Konchem malli cheppagalara?"
+            storage_service.append_transcript(call.id, "assistant", prompt, call.language)
+            return prompt, call.language
+
+    def _fallback_initial_prompt(self) -> str:
+        return (
+            "Namaskaram, nenu Rubi nundi maatladutunna. "
+            "Meeru Telugu, English, leda Tenglish lo edi comfortable?"
         )
 
     def _continue_gather_twiml(
