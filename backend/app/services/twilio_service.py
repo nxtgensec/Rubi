@@ -300,7 +300,7 @@ class TwilioService:
             '<?xml version="1.0" encoding="UTF-8"?>'
             "<Response>"
             f'<Gather input="speech" action="{escape(gather_url)}" method="POST" '
-            f'language="{gather_language}" speechTimeout="auto" timeout="10" '
+            f'language="{gather_language}" speechTimeout="2" timeout="4" '
             'actionOnEmptyResult="true">'
             f'<Say language="{say_language}" voice="{self._twilio_say_voice(language)}">'
             f"{escape(prompt)}</Say>"

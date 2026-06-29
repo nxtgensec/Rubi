@@ -112,12 +112,13 @@ class GeminiAgentService:
             ),
             "generation_config": {
                 "temperature": 0.35,
+                "max_output_tokens": 180,
                 "response_mime_type": "application/json",
             },
         }
 
     async def _call_interactions(self, payload: dict[str, Any]) -> str:
-        async with httpx.AsyncClient(timeout=12) as client:
+        async with httpx.AsyncClient(timeout=7) as client:
             response = await client.post(
                 "https://generativelanguage.googleapis.com/v1beta/interactions",
                 headers={
@@ -145,7 +146,7 @@ class GeminiAgentService:
             ],
             "generationConfig": payload["generation_config"],
         }
-        async with httpx.AsyncClient(timeout=12) as client:
+        async with httpx.AsyncClient(timeout=7) as client:
             response = await client.post(
                 url,
                 params={"key": settings.gemini_api_key},
