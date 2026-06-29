@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 import os
 from pathlib import Path
+import sys
 from tempfile import NamedTemporaryFile
 from typing import Any
 from urllib.parse import quote
@@ -18,7 +19,7 @@ class StorageService:
         self.store_path = self.data_dir / "rubi_store.json"
         self.supabase_url = (settings.supabase_url or "").rstrip("/")
         self.supabase_key = settings.supabase_service_role_key
-        self.supabase_enabled = bool(self.supabase_url and self.supabase_key)
+        self.supabase_enabled = bool(self.supabase_url and self.supabase_key and "pytest" not in sys.modules)
         self._migrate_local_calls_to_supabase()
 
     def list_calls(self) -> list[StoredCall]:
@@ -214,6 +215,8 @@ class StorageService:
     def _data_dir(self) -> Path:
         if settings.rubi_data_dir:
             return Path(settings.rubi_data_dir)
+        if "pytest" in sys.modules:
+            return Path(__file__).resolve().parents[3] / ".pytest_cache" / "rubi-data"
         if os.environ.get("VERCEL"):
             return Path("/tmp/rubi-data")
         return Path(__file__).resolve().parents[3] / "data"

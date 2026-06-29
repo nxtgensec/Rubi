@@ -288,7 +288,7 @@ export default function Home() {
                   <ConfigRow label="English" value="Twilio speech and voice" />
                   <ConfigRow label="Telugu" value="Detected from Telugu/Tenglish text cues" />
                   <ConfigRow label="Tenglish" value="Supported for intake prompts" />
-                  <ConfigRow label="Call data" value="data/rubi_store.json" />
+                  <ConfigRow label="Call data" value="Supabase rubi_calls" />
                   <ConfigRow label="Recordings" value="Twilio recording URL" />
                 </CardContent>
               </Card>
