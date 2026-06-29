@@ -1,5 +1,6 @@
 import os
 from html import escape
+from urllib.parse import urlencode
 
 import httpx
 from app.core.config import settings
@@ -24,8 +25,11 @@ class TwilioService:
             InboundCallRequest(
                 provider="twilio",
                 provider_call_id=form.get("CallSid", "unknown"),
-                from_number=form.get("From", "unknown"),
-                to_number=form.get("To", settings.twilio_phone_number or "unknown"),
+                from_number=form.get("OutboundTo") or form.get("From", "unknown"),
+                to_number=(
+                    form.get("OutboundFrom")
+                    or form.get("To", settings.twilio_phone_number or "unknown")
+                ),
                 preferred_language=form.get("SpeechResultLanguage"),
             )
         )
@@ -34,12 +38,15 @@ class TwilioService:
                 id=instructions.call_id,
                 provider="twilio",
                 provider_call_id=form.get("CallSid", "unknown"),
-                from_number=form.get("From", "unknown"),
-                to_number=form.get("To", settings.twilio_phone_number or "unknown"),
+                from_number=form.get("OutboundTo") or form.get("From", "unknown"),
+                to_number=(
+                    form.get("OutboundFrom")
+                    or form.get("To", settings.twilio_phone_number or "unknown")
+                ),
                 status="in_progress",
                 language=instructions.language,
                 lead=LeadDetails(
-                    phone=form.get("From", "unknown"),
+                    phone=form.get("OutboundTo") or form.get("From", "unknown"),
                     language=instructions.language,
                 ),
                 created_at=telephony_service.get_started_at(instructions.call_id),
@@ -49,6 +56,7 @@ class TwilioService:
         await self._start_twilio_recording(
             provider_call_id=form.get("CallSid", ""),
             call_id=instructions.call_id,
+            callback_base_url=callback_base_url,
         )
         return self._build_voice_twiml(
             call_id=instructions.call_id,
@@ -129,6 +137,11 @@ class TwilioService:
             payload.model_copy(update={"provider": "twilio"})
         )
         voice_url = self._backend_url("/api/v1/twilio/voice", callback_base_url=callback_base_url)
+        outbound_from = settings.twilio_phone_number or payload.from_number
+        query = urlencode(
+            {"OutboundTo": payload.to_number, "OutboundFrom": outbound_from},
+        )
+        voice_url = f"{voice_url}?{query}"
         status_url = self._backend_url("/api/v1/twilio/status", callback_base_url=callback_base_url)
 
         async with httpx.AsyncClient(timeout=15) as client:
@@ -151,14 +164,22 @@ class TwilioService:
 
         return data["sid"] if "sid" in data else session.provider_call_id
 
-    async def _start_twilio_recording(self, provider_call_id: str, call_id: str) -> None:
+    async def _start_twilio_recording(
+        self,
+        provider_call_id: str,
+        call_id: str,
+        callback_base_url: str | None = None,
+    ) -> None:
         if (
             not provider_call_id
             or not settings.twilio_account_sid
             or not settings.twilio_auth_token
         ):
             return
-        recording_callback = self._recording_callback_url(call_id)
+        recording_callback = self._recording_callback_url(
+            call_id,
+            callback_base_url=callback_base_url,
+        )
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 await client.post(
@@ -204,12 +225,14 @@ class TwilioService:
             f"{self._backend_url('/api/v1/twilio/gather', callback_base_url=callback_base_url)}"
             f"?call_id={call_id}"
         )
+        gather_language = self._twilio_gather_language(language)
         say_language = self._twilio_say_language(language)
         return (
             '<?xml version="1.0" encoding="UTF-8"?>'
             "<Response>"
             f'<Gather input="speech" action="{escape(gather_url)}" method="POST" '
-            f'language="{say_language}" speechTimeout="auto" timeout="6">'
+            f'language="{gather_language}" speechTimeout="auto" timeout="10" '
+            'actionOnEmptyResult="true">'
             f'<Say language="{say_language}" voice="{self._twilio_say_voice(language)}">'
             f"{escape(prompt)}</Say>"
             "</Gather>"
@@ -227,9 +250,13 @@ class TwilioService:
             "</Response>"
         )
 
-    def _recording_callback_url(self, call_id: str) -> str:
+    def _recording_callback_url(
+        self,
+        call_id: str,
+        callback_base_url: str | None = None,
+    ) -> str:
         return (
-            f"{self._backend_url('/api/v1/twilio/recording')}"
+            f"{self._backend_url('/api/v1/twilio/recording', callback_base_url=callback_base_url)}"
             f"?call_id={escape(call_id)}"
         )
 
@@ -254,6 +281,15 @@ class TwilioService:
 
     def _twilio_say_voice(self, language: str) -> str:
         return "Polly.Aditi"
+
+    def _twilio_gather_language(self, language: str) -> str:
+        supported = {
+            "te-IN": "te-IN",
+            "tenglish": "en-IN",
+            "en-IN": "en-IN",
+            "hi-IN": "hi-IN",
+        }
+        return supported.get(language, "en-IN")
 
 
 twilio_service = TwilioService()
