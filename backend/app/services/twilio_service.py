@@ -1,6 +1,4 @@
 from html import escape
-from urllib.parse import urljoin
-
 import httpx
 from app.core.config import settings
 from app.schemas.intake import LeadDetails, StoredCall
@@ -108,8 +106,8 @@ class TwilioService:
         session = await telephony_service.start_outbound_call(
             payload.model_copy(update={"provider": "twilio"})
         )
-        voice_url = urljoin(settings.public_backend_url, "/api/v1/twilio/voice")
-        status_url = urljoin(settings.public_backend_url, "/api/v1/twilio/status")
+        voice_url = self._backend_url("/api/v1/twilio/voice")
+        status_url = self._backend_url("/api/v1/twilio/status")
 
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
@@ -194,9 +192,12 @@ class TwilioService:
 
     def _recording_callback_url(self, call_id: str) -> str:
         return (
-            f"{settings.public_backend_url.rstrip('/')}/api/v1/twilio/recording"
+            f"{self._backend_url('/api/v1/twilio/recording')}"
             f"?call_id={escape(call_id)}"
         )
+
+    def _backend_url(self, path: str) -> str:
+        return f"{settings.public_backend_url.rstrip('/')}/{path.lstrip('/')}"
 
     def _twilio_say_language(self, language: str) -> str:
         # Twilio <Say> language support is provider-specific; use Indian English as fallback.
