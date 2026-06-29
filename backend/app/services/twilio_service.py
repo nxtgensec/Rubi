@@ -1,4 +1,6 @@
 from html import escape
+import os
+
 import httpx
 from app.core.config import settings
 from app.schemas.intake import LeadDetails, StoredCall
@@ -164,7 +166,7 @@ class TwilioService:
 
     def _continue_gather_twiml(self, call_id: str, prompt: str, language: str) -> str:
         gather_url = (
-            f"{settings.public_backend_url.rstrip('/')}/api/v1/twilio/gather"
+            f"{self._backend_url('/api/v1/twilio/gather')}"
             f"?call_id={call_id}"
         )
         say_language = self._twilio_say_language(language)
@@ -197,7 +199,13 @@ class TwilioService:
         )
 
     def _backend_url(self, path: str) -> str:
-        return f"{settings.public_backend_url.rstrip('/')}/{path.lstrip('/')}"
+        base_url = os.getenv("PUBLIC_BACKEND_URL") or settings.public_backend_url
+        if os.getenv("VERCEL_URL"):
+            base_url = f"https://{os.getenv('VERCEL_URL')}"
+        base_url = base_url.rstrip("/")
+        if os.getenv("VERCEL") and "/_/backend" not in base_url:
+            base_url = f"{base_url}/_/backend"
+        return f"{base_url}/{path.lstrip('/')}"
 
     def _twilio_say_language(self, language: str) -> str:
         # Twilio <Say> language support is provider-specific; use Indian English as fallback.
