@@ -1,19 +1,56 @@
+"use client";
+
 import { Bot, Brain, Cable, Languages, Lock, Phone, Radio, Settings, Shield, Users, Wrench } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { apiPath } from "@/lib/api";
 import { formatCallTime, recordingUrl, type Call } from "@/lib/calls";
 
 export default function Home() {
-  const calls: Call[] = [];
+  const [calls, setCalls] = useState<Call[]>([]);
+  const [callsLoading, setCallsLoading] = useState(true);
+  const [callsError, setCallsError] = useState<string | null>(null);
   const latestCall = calls[0];
   const activeCalls = calls.filter((call) => ["collecting", "qualified"].includes(call.status)).length;
   const agreedCalls = calls.filter((call) => call.sentiment === "agreed").length;
   const recordedCalls = calls.filter((call) => call.recording_url).length;
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCalls() {
+      try {
+        const response = await fetch(apiPath("/api/v1/calls"), { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Could not load calls");
+        }
+        const data = (await response.json()) as Call[];
+        if (active) {
+          setCalls(data);
+          setCallsError(null);
+          setCallsLoading(false);
+        }
+      } catch {
+        if (active) {
+          setCallsError("Could not load live call records.");
+          setCallsLoading(false);
+        }
+      }
+    }
+
+    loadCalls();
+    const interval = window.setInterval(loadCalls, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   return (
     <AppShell>
@@ -24,11 +61,16 @@ export default function Home() {
       />
 
           <div className="grid gap-6 p-4 md:p-6">
+            {callsError ? (
+              <div className="rounded-md border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                {callsError}
+              </div>
+            ) : null}
             <section id="analytics" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 scroll-mt-20">
-              <MetricCard label="Total calls" value={String(calls.length)} detail="Stored from Twilio calls" />
-              <MetricCard label="Active leads" value={String(activeCalls)} detail="Still collecting details" />
-              <MetricCard label="Agreed" value={String(agreedCalls)} detail="Caller accepted team callback" />
-              <MetricCard label="Recordings" value={String(recordedCalls)} detail="Recording URL received" />
+              <MetricCard label="Total calls" value={callsLoading ? "..." : String(calls.length)} detail="Stored from Twilio calls" />
+              <MetricCard label="Active leads" value={callsLoading ? "..." : String(activeCalls)} detail="Still collecting details" />
+              <MetricCard label="Agreed" value={callsLoading ? "..." : String(agreedCalls)} detail="Caller accepted team callback" />
+              <MetricCard label="Recordings" value={callsLoading ? "..." : String(recordedCalls)} detail="Recording URL received" />
             </section>
 
             <section id="live" className="grid gap-4 scroll-mt-20 xl:grid-cols-[1.2fr_0.8fr]">
