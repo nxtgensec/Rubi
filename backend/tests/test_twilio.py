@@ -1,4 +1,5 @@
 from app.main import app
+from app.services.twilio_service import twilio_service
 from fastapi.testclient import TestClient
 
 
@@ -70,3 +71,26 @@ def test_twilio_recording_callback_accepts_form() -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_twilio_outbound_endpoint_queues_call(monkeypatch) -> None:
+    async def fake_start_outbound_call(payload, callback_base_url=None):
+        assert payload.to_number == "+917672010211"
+        assert payload.from_number == "+14244963973"
+        assert callback_base_url is not None
+        return "CA_OUTBOUND_TEST"
+
+    monkeypatch.setattr(twilio_service, "start_outbound_call", fake_start_outbound_call)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/twilio/outbound",
+        json={
+            "to_number": "+917672010211",
+            "from_number": "+14244963973",
+            "preferred_language": "te-IN",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "queued", "provider_call_id": "CA_OUTBOUND_TEST"}

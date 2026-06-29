@@ -1,11 +1,15 @@
 import { AppShell } from "@/components/app-shell";
 import { FeaturePage } from "@/components/feature-page";
+import { OutboundCallPanel } from "@/components/outbound-call-panel";
 import { PageHeader } from "@/components/page-header";
 
 export default function TelephonyPage() {
   return (
     <AppShell>
       <PageHeader title="Telephony" description="Inbound phone connection and webhook status." />
+      <div className="mb-4">
+        <OutboundCallPanel />
+      </div>
       <FeaturePage title="Telephony" description="Twilio inbound calling is connected to the Rubi backend webhook." status="Active">
         <div className="grid gap-3 text-sm">
           <InfoRow label="Contact no" value="+91 76720 10211" />
