@@ -15,7 +15,7 @@ class TwilioConfigurationError(RuntimeError):
 
 
 class TwilioService:
-    async def handle_inbound_webhook(self, form: dict[str, str]) -> str:
+    async def handle_inbound_webhook(self, form: dict[str, str], callback_base_url: str | None = None) -> str:
         instructions = await telephony_service.receive_inbound_call(
             InboundCallRequest(
                 provider="twilio",
@@ -50,6 +50,7 @@ class TwilioService:
             call_id=instructions.call_id,
             greeting=instructions.greeting,
             language=instructions.language,
+            callback_base_url=callback_base_url,
         )
 
     async def handle_recording_callback(self, form: dict[str, str]) -> None:
@@ -75,7 +76,12 @@ class TwilioService:
         except KeyError:
             return
 
-    async def handle_gather(self, call_id: str, form: dict[str, str]) -> str:
+    async def handle_gather(
+        self,
+        call_id: str,
+        form: dict[str, str],
+        callback_base_url: str | None = None,
+    ) -> str:
         call = storage_service.get_call(call_id)
         if not call:
             return self._simple_twiml("Sorry, I could not find this call session.")
@@ -89,6 +95,7 @@ class TwilioService:
                     "budget cheppagalara?"
                 ),
                 language=call.language,
+                callback_base_url=callback_base_url,
             )
 
         response = intake_agent_service.process_caller_message(
@@ -99,17 +106,26 @@ class TwilioService:
         call = storage_service.get_call(call_id)
         if call and call.lead.status in {"agreed", "not_agreed", "needs_team"}:
             return self._simple_twiml(response)
-        return self._continue_gather_twiml(call_id=call_id, prompt=response, language=call.language)
+        return self._continue_gather_twiml(
+            call_id=call_id,
+            prompt=response,
+            language=call.language,
+            callback_base_url=callback_base_url,
+        )
 
-    async def start_outbound_call(self, payload: OutboundCallRequest) -> str:
+    async def start_outbound_call(
+        self,
+        payload: OutboundCallRequest,
+        callback_base_url: str | None = None,
+    ) -> str:
         if not settings.twilio_account_sid or not settings.twilio_auth_token:
             raise TwilioConfigurationError("Twilio credentials are not configured")
 
         session = await telephony_service.start_outbound_call(
             payload.model_copy(update={"provider": "twilio"})
         )
-        voice_url = self._backend_url("/api/v1/twilio/voice")
-        status_url = self._backend_url("/api/v1/twilio/status")
+        voice_url = self._backend_url("/api/v1/twilio/voice", callback_base_url=callback_base_url)
+        status_url = self._backend_url("/api/v1/twilio/status", callback_base_url=callback_base_url)
 
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
@@ -154,7 +170,13 @@ class TwilioService:
         except httpx.HTTPError:
             return
 
-    def _build_voice_twiml(self, call_id: str, greeting: str, language: str) -> str:
+    def _build_voice_twiml(
+        self,
+        call_id: str,
+        greeting: str,
+        language: str,
+        callback_base_url: str | None = None,
+    ) -> str:
         prompt = (
             "Namaskaram, nenu Rubi nundi maatladutunna. "
             "Mee web development project kosam help cheyyadaniki call chestunna. "
@@ -162,11 +184,22 @@ class TwilioService:
             "mariyu mee budget range cheppandi. Meeru Telugu, English, "
             "leda Tenglish lo maatladachu."
         )
-        return self._continue_gather_twiml(call_id=call_id, prompt=prompt, language=language)
+        return self._continue_gather_twiml(
+            call_id=call_id,
+            prompt=prompt,
+            language=language,
+            callback_base_url=callback_base_url,
+        )
 
-    def _continue_gather_twiml(self, call_id: str, prompt: str, language: str) -> str:
+    def _continue_gather_twiml(
+        self,
+        call_id: str,
+        prompt: str,
+        language: str,
+        callback_base_url: str | None = None,
+    ) -> str:
         gather_url = (
-            f"{self._backend_url('/api/v1/twilio/gather')}"
+            f"{self._backend_url('/api/v1/twilio/gather', callback_base_url=callback_base_url)}"
             f"?call_id={call_id}"
         )
         say_language = self._twilio_say_language(language)
@@ -198,10 +231,8 @@ class TwilioService:
             f"?call_id={escape(call_id)}"
         )
 
-    def _backend_url(self, path: str) -> str:
-        base_url = os.getenv("PUBLIC_BACKEND_URL") or settings.public_backend_url
-        if os.getenv("VERCEL_URL"):
-            base_url = f"https://{os.getenv('VERCEL_URL')}"
+    def _backend_url(self, path: str, callback_base_url: str | None = None) -> str:
+        base_url = callback_base_url or os.getenv("PUBLIC_BACKEND_URL") or settings.public_backend_url
         base_url = base_url.rstrip("/")
         if os.getenv("VERCEL") and "/_/backend" not in base_url:
             base_url = f"{base_url}/_/backend"
