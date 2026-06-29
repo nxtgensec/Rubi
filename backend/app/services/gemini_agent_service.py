@@ -43,11 +43,11 @@ class GeminiAgentService:
 
         payload = self._request_payload(call, message, event)
         try:
-            raw = await self._call_interactions(payload)
+            raw = await self._call_generate_content(payload)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code not in {400, 404}:
                 raise
-            raw = await self._call_generate_content(payload)
+            raw = await self._call_interactions(payload)
         result = self._parse_result(raw)
         lead = self._merge_lead(call.lead, result)
         language = self._normalise_language(result.get("language") or lead.language)

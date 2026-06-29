@@ -156,7 +156,7 @@ class StorageService:
     def _read(self) -> dict[str, Any]:
         if not self.store_path.exists():
             return {"calls": {}}
-        return json.loads(self.store_path.read_text(encoding="utf-8"))
+        return json.loads(self.store_path.read_text(encoding="utf-8-sig"))
 
     def _write(self, data: dict[str, Any]) -> None:
         with NamedTemporaryFile("w", encoding="utf-8", delete=False, dir=self.data_dir) as tmp:
