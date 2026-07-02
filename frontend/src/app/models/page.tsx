@@ -6,9 +6,9 @@ export default function ModelsPage() {
   return (
     <AppShell>
       <PageHeader title="Models" description="AI and decision logic status." />
-      <FeaturePage title="Models" description="Rubi uses Gemini for the live web development intake flow, with a structured fallback if the model is unavailable." status="Beta">
+      <FeaturePage title="Models" description="Rubi uses Sarvam for Telugu-only web development intake, with a structured fallback if the model is unavailable." status="Beta">
         <div className="grid gap-3 text-sm">
-          <InfoRow label="Current mode" value="Gemini web development intake agent" />
+          <InfoRow label="Current mode" value="Sarvam Telugu voice intake agent" />
           <InfoRow label="Knowledge source" value="docs/business_knowledge.md" />
           <InfoRow label="Unknown questions" value="Fallback to team callback message" />
           <InfoRow label="Model picker" value="Under testing and development" />

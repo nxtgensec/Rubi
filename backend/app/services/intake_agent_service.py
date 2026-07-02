@@ -2,7 +2,7 @@ import re
 
 import httpx
 from app.schemas.intake import LeadDetails
-from app.services.gemini_agent_service import gemini_agent_service
+from app.services.sarvam_agent_service import sarvam_agent_service
 from app.services.storage_service import storage_service
 from app.services.website_knowledge_service import website_knowledge_service
 
@@ -25,7 +25,7 @@ class IntakeAgentService:
             raise KeyError(call_id)
 
         try:
-            lead, response, response_language, _should_end = await gemini_agent_service.process(
+            lead, response, response_language, _should_end = await sarvam_agent_service.process(
                 call,
                 message,
             )
@@ -39,7 +39,7 @@ class IntakeAgentService:
             storage_service.append_transcript(call_id, "assistant", response, response_language)
             return response
         except (RuntimeError, httpx.HTTPError, ValueError, KeyError):
-            # Emergency fallback only. Normal live calls are fully Gemini-driven.
+            # Emergency fallback only. Normal live calls are fully Sarvam-driven.
             pass
 
         lead = self.extract_lead_details(call.lead, message, from_number, language)
@@ -93,39 +93,35 @@ class IntakeAgentService:
         if lead.status == "needs_team":
             return self._phrase(
                 language,
-                "Sorry, ee question gurinchi exact answer na daggara ledu. "
-                "Nenu maa team ki connect chesthanu. Vallu meeku callback chestharu.",
+                "క్షమించండి అండి, ఈ విషయం గురించి మా టీమ్‌తో నిర్ధారించి మీకు తిరిగి కాల్ చేస్తాము.",
             )
         if lead.agreed is True:
             return self._phrase(
                 language,
-                "Chala bagundi, thank you. Nenu maa Rubi team ki connect chesthanu. "
-                "Maa team tondaraga meeku call back chestharu.",
+                "చాలా ధన్యవాదాలు అండి. మా రూబి టీమ్ త్వరలో మీకు తిరిగి కాల్ చేస్తుంది.",
             )
         if lead.agreed is False:
             return self._phrase(
                 language,
-                "Parvaledu. Meeru ippudu ready ga leru ani note chesanu. "
-                "Tarvata kavali ante maa team help chestharu.",
+                "పరవాలేదు అండి. మీరు ఇప్పుడు సిద్ధంగా లేరని నమోదు చేశాను. తర్వాత అవసరం ఉంటే మా టీమ్ సహాయం చేస్తుంది.",
             )
         if not lead.name:
-            return self._phrase(language, "Mee peru cheppagalara?")
+            return self._phrase(language, "మీ పేరు చెప్పగలరా?")
         if not lead.need:
             website_answer = website_knowledge_service.answer(message)
             return self._phrase(
                 language,
-                f"{website_answer} Meeku website, ecommerce, landing page, "
-                "leka custom web app lo exactly emi kavali?",
+                f"{website_answer} మీకు వెబ్‌సైట్, ఈకామర్స్, ల్యాండింగ్ పేజ్ లేదా కస్టమ్ వెబ్ యాప్‌లో ఏది కావాలి?",
             )
         if not lead.budget:
             website_answer = website_knowledge_service.answer(lead.need or message)
             return self._phrase(
                 language,
-                f"{website_answer} Ee project kosam mee budget range entha plan chestunnaru?",
+                f"{website_answer} ఈ ప్రాజెక్ట్ కోసం మీ బడ్జెట్ రేంజ్ ఎంతగా అనుకుంటున్నారు?",
             )
         return self._phrase(
             language,
-            "Mee details note chesanu. Maa Rubi team meeku callback cheyyadam okay na?",
+            "మీ వివరాలు నమోదు చేశాను. మా రూబి టీమ్ మీకు తిరిగి కాల్ చేయడం సరేనా?",
         )
 
     def detect_conversation_language(self, message: str) -> str:
@@ -133,8 +129,8 @@ class IntakeAgentService:
             return "te-IN"
         telugu_words = ["naku", "kavali", "emi", "meeru", "budget", "cheppandi", "undi", "ledu"]
         if any(word in message.lower() for word in telugu_words):
-            return "tenglish"
-        return "en-IN"
+            return "te-IN"
+        return "te-IN"
 
     def _extract_name(self, message: str) -> str | None:
         patterns = [
@@ -181,7 +177,7 @@ class IntakeAgentService:
         return None
 
     def _phrase(self, language: str, english: str) -> str:
-        if language in {"te-IN", "tenglish"}:
+        if language == "te-IN":
             return english
         return english
 

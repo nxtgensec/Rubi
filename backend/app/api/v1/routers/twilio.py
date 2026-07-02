@@ -1,6 +1,7 @@
 import httpx
 from app.core.config import settings
 from app.schemas.telephony import OutboundCallRequest
+from app.services.sarvam_tts_service import sarvam_tts_service
 from app.services.twilio_service import TwilioConfigurationError, twilio_service
 from fastapi import APIRouter, Form, HTTPException, Request, Response
 
@@ -64,6 +65,17 @@ async def outbound_call(request: Request, payload: OutboundCallRequest) -> dict[
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail="Could not connect to Twilio.") from exc
     return {"status": "queued", "provider_call_id": provider_call_id}
+
+
+@router.get("/tts")
+async def sarvam_tts(text: str, sig: str) -> Response:
+    try:
+        audio = await sarvam_tts_service.synthesize(text, sig)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Invalid TTS request") from exc
+    except (RuntimeError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=502, detail="Could not generate Sarvam voice") from exc
+    return Response(content=audio, media_type="audio/wav")
 
 
 def _callback_base_url(request: Request) -> str:

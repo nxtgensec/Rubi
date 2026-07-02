@@ -22,8 +22,10 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
     supabase_access_token: str | None = None
-    gemini_api_key: str | None = None
-    gemini_model: str = "gemini-3.5-flash"
+    sarvam_api_key: str | None = None
+    sarvam_chat_model: str = "sarvam-30b"
+    sarvam_tts_model: str = "bulbul:v3"
+    sarvam_tts_speaker: str = "kavitha"
     cors_origins: str = '["http://localhost:3000","http://127.0.0.1:3000"]'
     rubi_data_dir: str | None = None
 

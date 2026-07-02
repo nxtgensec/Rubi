@@ -7,8 +7,9 @@ import httpx
 from app.core.config import settings
 from app.schemas.intake import LeadDetails, StoredCall
 from app.schemas.telephony import InboundCallRequest, OutboundCallRequest, RecordingUpdate
-from app.services.gemini_agent_service import gemini_agent_service
 from app.services.intake_agent_service import intake_agent_service
+from app.services.sarvam_agent_service import sarvam_agent_service
+from app.services.sarvam_tts_service import sarvam_tts_service
 from app.services.storage_service import storage_service
 from app.services.telephony_service import telephony_service
 
@@ -55,7 +56,7 @@ class TwilioService:
                 updated_at=telephony_service.get_started_at(instructions.call_id),
             )
         )
-        cached_prompt = gemini_agent_service.get_cached_start_prompt()
+        cached_prompt = sarvam_agent_service.get_cached_start_prompt()
         prompt, prompt_language = (
             (form.get("Prompt"), form.get("PromptLanguage") or instructions.language)
             if form.get("Prompt")
@@ -115,11 +116,14 @@ class TwilioService:
     ) -> str:
         call = storage_service.get_call(call_id)
         if not call:
-            return self._simple_twiml("Sorry, I could not find this call session.")
+            return self._simple_twiml(
+                "క్షమించండి, ఈ కాల్ వివరాలు కనిపించలేదు. ధన్యవాదాలు.",
+                callback_base_url=callback_base_url,
+            )
 
         speech_result = form.get("SpeechResult", "").strip()
         if not speech_result:
-            prompt, language = await self._no_speech_prompt_from_gemini(call)
+            prompt, language = await self._no_speech_prompt_from_sarvam(call)
             return self._continue_gather_twiml(
                 call_id=call_id,
                 prompt=prompt,
@@ -134,7 +138,7 @@ class TwilioService:
         )
         call = storage_service.get_call(call_id)
         if call and call.lead.status in {"agreed", "not_agreed", "needs_team"}:
-            return self._simple_twiml(response)
+            return self._simple_twiml(response, callback_base_url=callback_base_url)
         return self._continue_gather_twiml(
             call_id=call_id,
             prompt=response,
@@ -155,7 +159,7 @@ class TwilioService:
         )
         prompt_query: dict[str, str] = {}
         try:
-            prompt, prompt_language = await gemini_agent_service.prewarm_start_prompt(
+            prompt, prompt_language = await sarvam_agent_service.prewarm_start_prompt(
                 caller_number=payload.to_number,
                 to_number=settings.twilio_phone_number or payload.from_number,
             )
@@ -242,12 +246,12 @@ class TwilioService:
             callback_base_url=callback_base_url,
         )
 
-    async def _initial_prompt_from_gemini(self, call_id: str) -> str:
+    async def _initial_prompt_from_sarvam(self, call_id: str) -> str:
         call = storage_service.get_call(call_id)
         if not call:
             return self._fallback_initial_prompt()
         try:
-            lead, prompt, language, _should_end = await gemini_agent_service.start_conversation(
+            lead, prompt, language, _should_end = await sarvam_agent_service.start_conversation(
                 call,
             )
             storage_service.update_lead(call_id, lead)
@@ -262,9 +266,9 @@ class TwilioService:
             storage_service.append_transcript(call_id, "assistant", prompt, call.language)
             return prompt
 
-    async def _no_speech_prompt_from_gemini(self, call: StoredCall) -> tuple[str, str]:
+    async def _no_speech_prompt_from_sarvam(self, call: StoredCall) -> tuple[str, str]:
         try:
-            lead, prompt, language, _should_end = await gemini_agent_service.handle_no_speech(call)
+            lead, prompt, language, _should_end = await sarvam_agent_service.handle_no_speech(call)
             storage_service.update_lead(call.id, lead)
             stored_call = storage_service.get_call(call.id)
             if stored_call:
@@ -273,15 +277,12 @@ class TwilioService:
             storage_service.append_transcript(call.id, "assistant", prompt, language)
             return prompt, language
         except (RuntimeError, httpx.HTTPError, ValueError, KeyError):
-            prompt = "Sorry, clear ga vinipinchaledu. Konchem malli cheppagalara?"
+            prompt = "క్షమించండి అండి, స్పష్టంగా వినిపించలేదు. దయచేసి మళ్లీ చెప్పగలరా?"
             storage_service.append_transcript(call.id, "assistant", prompt, call.language)
             return prompt, call.language
 
     def _fallback_initial_prompt(self) -> str:
-        return (
-            "Namaskaram, nenu Rubi nundi maatladutunna. "
-            "Meeru Telugu, English, leda Tenglish lo edi comfortable?"
-        )
+        return "నమస్కారం అండి. నేను రూబి. వెబ్ డెవలప్‌మెంట్ సహాయం కోసం మాట్లాడుతున్నాను. మీ పేరు చెప్పగలరా?"
 
     def _continue_gather_twiml(
         self,
@@ -296,26 +297,29 @@ class TwilioService:
         )
         gather_language = self._twilio_gather_language(language)
         say_language = self._twilio_say_language(language)
+        no_response_twiml = self._voice_twiml(
+            "క్షమించండి, స్పందన రాలేదు. ధన్యవాదాలు.",
+            say_language,
+            language,
+            callback_base_url,
+        )
         return (
             '<?xml version="1.0" encoding="UTF-8"?>'
             "<Response>"
             f'<Gather input="speech" action="{escape(gather_url)}" method="POST" '
             f'language="{gather_language}" speechTimeout="2" timeout="4" '
             'actionOnEmptyResult="true">'
-            f'<Say language="{say_language}" voice="{self._twilio_say_voice(language)}">'
-            f"{escape(prompt)}</Say>"
+            f"{self._voice_twiml(prompt, say_language, language, callback_base_url)}"
             "</Gather>"
-            f'<Say language="{say_language}" voice="{self._twilio_say_voice(language)}">'
-            "Response receive avvaledu. Thank you.</Say>"
+            f"{no_response_twiml}"
             "</Response>"
         )
 
-    def _simple_twiml(self, message: str) -> str:
+    def _simple_twiml(self, message: str, callback_base_url: str | None = None) -> str:
         return (
             '<?xml version="1.0" encoding="UTF-8"?>'
             "<Response>"
-            f'<Say language="en-IN" voice="{self._twilio_say_voice("tenglish")}">'
-            f"{escape(message)}</Say>"
+            f"{self._voice_twiml(message, 'en-IN', 'te-IN', callback_base_url)}"
             "</Response>"
         )
 
@@ -354,11 +358,25 @@ class TwilioService:
     def _twilio_gather_language(self, language: str) -> str:
         supported = {
             "te-IN": "te-IN",
-            "tenglish": "en-IN",
             "en-IN": "en-IN",
             "hi-IN": "hi-IN",
         }
         return supported.get(language, "en-IN")
+
+    def _voice_twiml(
+        self,
+        text: str,
+        say_language: str,
+        language: str,
+        callback_base_url: str | None,
+    ) -> str:
+        if language == "te-IN" and sarvam_tts_service.enabled():
+            audio_url = sarvam_tts_service.audio_url(text, callback_base_url=callback_base_url)
+            return f"<Play>{escape(audio_url)}</Play>"
+        return (
+            f'<Say language="{say_language}" voice="{self._twilio_say_voice(language)}">'
+            f"{escape(text)}</Say>"
+        )
 
 
 twilio_service = TwilioService()

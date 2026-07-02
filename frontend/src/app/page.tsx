@@ -108,7 +108,7 @@ export default function Home() {
                   <div className="grid gap-3 md:grid-cols-3">
                     <StatusTile icon={Phone} label="Status" value={latestCall?.status ?? "Waiting"} />
                     <StatusTile icon={Bot} label="Summary" value={latestCall?.summary ?? "No call summary yet"} />
-                    <StatusTile icon={Languages} label="Language" value={latestCall?.language ?? "English / Telugu / Tenglish"} />
+                    <StatusTile icon={Languages} label="Language" value={latestCall?.language ?? "Pure Telugu"} />
                   </div>
                 </CardContent>
               </Card>
@@ -124,7 +124,7 @@ export default function Home() {
                 <CardContent className="grid gap-3 text-sm">
                   <ConfigRow label="Contact no" value="+91 76720 10211" />
                   <ConfigRow label="Twilio line" value="Connected for inbound calls" />
-                  <ConfigRow label="Speaks" value="English, Telugu, Tenglish" />
+                  <ConfigRow label="Speaks" value="Pure Telugu" />
                   <ConfigRow label="Collects" value="Name, need, budget, agreement" />
                   <ConfigRow label="When agreed" value="Tells caller the team will get back" />
                   <ConfigRow label="Knowledge" value="docs/business_knowledge.md" />
@@ -282,12 +282,12 @@ export default function Home() {
                     <CardTitle>Voices And Language</CardTitle>
                     <Badge className="border-amber-500/35 bg-amber-500/10 text-amber-700">Beta</Badge>
                   </div>
-                  <CardDescription>English is stable. Telugu and Tenglish are active in the intake flow and still being tuned.</CardDescription>
+                  <CardDescription>Sarvam Telugu voice is active. Twilio speech capture is still being tuned for live-call accuracy.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-3 text-sm">
-                  <ConfigRow label="English" value="Twilio speech and voice" />
-                  <ConfigRow label="Telugu" value="Detected from Telugu/Tenglish text cues" />
-                  <ConfigRow label="Tenglish" value="Supported for intake prompts" />
+                  <ConfigRow label="Primary voice" value="Sarvam Telugu TTS" />
+                  <ConfigRow label="Conversation" value="Pure Telugu web development intake" />
+                  <ConfigRow label="Speech capture" value="Twilio Telugu Gather" />
                   <ConfigRow label="Call data" value="Supabase rubi_calls" />
                   <ConfigRow label="Recordings" value="Twilio recording URL" />
                 </CardContent>
@@ -297,7 +297,7 @@ export default function Home() {
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <StatusTile id="telephony" icon={Cable} label="Telephony" value="Inbound webhook answers calls" />
               <StatusTile id="tools" icon={Wrench} label="Tools" value="Beta: recording, transcript, lead intake tools are connected" badge="Beta" />
-              <StatusTile id="models" icon={Brain} label="Models" value="Gemini-backed web development intake with structured fallback" badge="Beta" />
+              <StatusTile id="models" icon={Brain} label="Models" value="Sarvam Telugu web development voice intake" badge="Beta" />
               <StatusTile icon={Bot} label="Lead State" value="Agreed / not agreed / collecting" />
             </section>
 

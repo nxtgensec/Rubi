@@ -6,12 +6,12 @@ export default function VoicesPage() {
   return (
     <AppShell>
       <PageHeader title="Voices" description="Language and voice behavior for calls." />
-      <FeaturePage title="Voices And Language" description="English is stable. Telugu and Tenglish prompts are active and still being tuned." status="Beta">
+      <FeaturePage title="Voices And Language" description="Sarvam Telugu voice is active for Rubi phone prompts. Twilio still handles call routing and speech capture." status="Beta">
         <div className="grid gap-3 text-sm">
-          <InfoRow label="English" value="Twilio speech and voice" />
-          <InfoRow label="Telugu" value="Supported through Telugu/Tenglish call prompts" />
-          <InfoRow label="Tenglish" value="Supported for intake and fallback prompts" />
-          <InfoRow label="Natural Telugu voice" value="Under testing and development" />
+          <InfoRow label="Primary language" value="Pure Telugu" />
+          <InfoRow label="Voice provider" value="Sarvam Bulbul Telugu voice" />
+          <InfoRow label="Speech capture" value="Twilio Gather with Telugu recognition" />
+          <InfoRow label="Voice style" value="Polite, pleasant Telugu woman voice" />
         </div>
       </FeaturePage>
     </AppShell>

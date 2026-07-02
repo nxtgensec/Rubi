@@ -7,8 +7,8 @@ The current repository is an MVP-grade monorepo designed to be easy to run local
 ## Product Capabilities
 
 - Inbound phone-call handling with Twilio Voice webhooks.
-- Structured website-development intake flow.
-- English, Telugu, and Tenglish-oriented prompts.
+- Sarvam-backed Telugu website-development intake flow.
+- Pure Telugu call prompts with Sarvam Telugu text-to-speech.
 - Lead capture for name, phone number, requirement, budget, and agreement state.
 - Call recording callback support and dashboard playback links.
 - Chat-style transcript view per caller.
@@ -43,7 +43,7 @@ Rubi is split into a Next.js dashboard and a FastAPI backend.
 flowchart LR
   Caller["Caller"] --> Twilio["Twilio Voice Number"]
   Twilio --> Backend["FastAPI Backend"]
-  Backend --> Intake["Structured Intake Agent"]
+  Backend --> Intake["Sarvam Telugu Intake Agent"]
   Intake --> Knowledge["Business Knowledge File"]
   Backend --> Storage["Call Storage"]
   Backend --> Supabase["Supabase Visitor Counts"]
@@ -74,7 +74,9 @@ Important areas:
 - `backend/app/api/v1/routers/twilio.py`: Twilio Voice and recording callbacks.
 - `backend/app/api/v1/routers/calls.py`: call listing, detail, and recording proxy.
 - `backend/app/api/v1/routers/visits.py`: visitor stats endpoints.
-- `backend/app/services/intake_agent_service.py`: structured web-development intake flow.
+- `backend/app/services/intake_agent_service.py`: Sarvam-backed web-development intake flow.
+- `backend/app/services/sarvam_agent_service.py`: Telugu-only Sarvam chat behavior.
+- `backend/app/services/sarvam_tts_service.py`: Sarvam Telugu voice generation for Twilio playback.
 - `backend/app/services/twilio_service.py`: Twilio-specific call orchestration.
 - `backend/app/services/storage_service.py`: call record persistence.
 - `backend/app/services/visitor_service.py`: Supabase visitor count management.
@@ -139,6 +141,10 @@ TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+SARVAM_API_KEY=
+SARVAM_CHAT_MODEL=sarvam-30b
+SARVAM_TTS_MODEL=bulbul:v3
+SARVAM_TTS_SPEAKER=kavitha
 ```
 
 Never commit `.env`. It is intentionally ignored.
@@ -394,8 +400,8 @@ Recommended pre-deploy checks:
 
 ## Current MVP Limitations
 
-- The call agent is a structured intake flow, not yet a full open-ended LLM voice agent.
-- Telugu/Tenglish support is prompt and phrase oriented; production-grade native Telugu STT/TTS tuning is still needed.
+- The call agent uses Sarvam for dynamic Telugu intake, but it stays scoped to web-development conversations.
+- Telugu voice playback is generated through Sarvam TTS; production-grade live STT tuning still depends on Twilio speech capture quality.
 - Some dashboard sections are marked Beta while deeper admin workflows are being built.
 - Call storage currently has local-file behavior in the backend service; production should move all call records to Supabase/Postgres.
 - Dashboard authentication and multi-user roles are not fully implemented.
