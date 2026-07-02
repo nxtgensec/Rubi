@@ -282,7 +282,7 @@ class TwilioService:
             return prompt, call.language
 
     def _fallback_initial_prompt(self) -> str:
-        return "నమస్కారం అండి. నేను రూబి. వెబ్ డెవలప్‌మెంట్ సహాయం కోసం మాట్లాడుతున్నాను. మీ పేరు చెప్పగలరా?"
+        return sarvam_agent_service.initial_greeting()
 
     def _continue_gather_twiml(
         self,

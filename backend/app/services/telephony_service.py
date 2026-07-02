@@ -124,13 +124,35 @@ class TelephonyService:
 
     def _answer_instructions(self, session: CallSessionRead) -> ProviderAnswerInstructions:
         greeting = {
-            "te-IN": "Namaskaram, Rubi maatladutondi. Mee kosam ela sahayam cheyyali?",
-            "hi-IN": "Namaste, Rubi bol rahi hoon. Main aapki kaise madad kar sakti hoon?",
-            "en-IN": "Hello, this is Rubi. How can I help you today?",
-            "ta-IN": "Vanakkam, Rubi pesugiren. Eppadi udhava vendum?",
-            "kn-IN": "Namaskara, Rubi mathaduttide. Nimage hege sahaya madali?",
-            "ml-IN": "Namaskaram, Rubi samsarikkunnu. Enthu sahayam venam?",
-        }.get(session.language, "Hello, this is Rubi. How can I help you today?")
+            "te-IN": (
+                "హలో అండి, నేను రూబికార్న్ టెక్నాలజీస్ నుండి కావిత మాట్లాడుతున్నాను. "
+                "మీకు ఏ డెవలప్‌మెంట్ సహాయం కావాలి?"
+            ),
+            "hi-IN": (
+                "Namaste, main Rubicorn Technologies se Kavitha bol rahi hoon. "
+                "Aapko kis development help ki zaroorat hai?"
+            ),
+            "en-IN": (
+                "Hello, this is Kavitha calling from Rubicorn Technologies. "
+                "What development help do you need?"
+            ),
+            "ta-IN": (
+                "Vanakkam, Rubicorn Technologies il irundhu Kavitha pesugiren. "
+                "Ungalukku enna development help venum?"
+            ),
+            "kn-IN": (
+                "Namaskara, Rubicorn Technologies inda Kavitha mathaduttiddene. "
+                "Nimage yaava development help beku?"
+            ),
+            "ml-IN": (
+                "Namaskaram, Rubicorn Technologies il ninnu Kavitha samsarikkunnu. "
+                "Enthu development help venam?"
+            ),
+        }.get(
+            session.language,
+            "Hello, this is Kavitha calling from Rubicorn Technologies. "
+            "What development help do you need?",
+        )
         return ProviderAnswerInstructions(
             call_id=session.id,
             stream_url=f"{settings.public_voice_stream_base_url}/{session.id}",

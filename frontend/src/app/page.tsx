@@ -297,7 +297,7 @@ export default function Home() {
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <StatusTile id="telephony" icon={Cable} label="Telephony" value="Inbound webhook answers calls" />
               <StatusTile id="tools" icon={Wrench} label="Tools" value="Beta: recording, transcript, lead intake tools are connected" badge="Beta" />
-              <StatusTile id="models" icon={Brain} label="Models" value="Sarvam Telugu web development voice intake" badge="Beta" />
+              <StatusTile id="models" icon={Brain} label="Models" value="Sarvam Telugu development consultant" badge="Beta" />
               <StatusTile icon={Bot} label="Lead State" value="Agreed / not agreed / collecting" />
             </section>
 

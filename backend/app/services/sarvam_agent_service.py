@@ -34,7 +34,17 @@ class SarvamAgentService:
         return reply, language
 
     async def start_conversation(self, call: StoredCall) -> tuple[LeadDetails, str, str, bool]:
-        return await self._generate(call=call, message="CALL_STARTED", event="call_started")
+        lead = call.lead.model_copy(deep=True)
+        lead.language = "te-IN"
+        lead.preferred_language = lead.preferred_language or "Telugu"
+        lead.status = lead.status or "collecting"
+        return lead, self.initial_greeting(), "te-IN", False
+
+    def initial_greeting(self) -> str:
+        return (
+            "హలో అండి, నేను రూబికార్న్ టెక్నాలజీస్ నుండి కావిత మాట్లాడుతున్నాను. "
+            "మీకు ఏ డెవలప్‌మెంట్ సహాయం కావాలి?"
+        )
 
     async def handle_no_speech(self, call: StoredCall) -> tuple[LeadDetails, str, str, bool]:
         return await self._generate(
@@ -60,12 +70,16 @@ class SarvamAgentService:
         raw = await self._call_chat_completion(call, message, event)
         result = self._parse_result(raw)
         lead = self._merge_lead(call.lead, result)
+        if event == "caller_message":
+            lead = self._hydrate_development_need(lead, message)
         language = "te-IN"
         lead.language = language
         lead.preferred_language = lead.preferred_language or "Telugu"
 
         reply = str(result.get("reply") or "").strip()
-        if not reply:
+        if event == "caller_message" and (not reply or self._is_repeated_intro(reply)):
+            reply = self._development_reply(lead, message)
+        elif not reply:
             reply = self._fallback_reply(lead)
 
         should_end = bool(result.get("should_end_call")) or lead.status in {
@@ -108,8 +122,9 @@ class SarvamAgentService:
             for turn in call.transcript[-12:]
         ]
         payload = {
-            "business": "Rubi web development team",
+            "business": "Rubicorn Technologies web development team",
             "event": event,
+            "event_instruction": self._event_instruction(event),
             "caller_number": call.from_number,
             "current_lead": call.lead.model_dump(),
             "latest_caller_message": message,
@@ -165,13 +180,103 @@ class SarvamAgentService:
             lead.status = "collecting"
         return lead
 
+    def _hydrate_development_need(self, lead: LeadDetails, message: str) -> LeadDetails:
+        lowered = message.lower()
+        development_terms = (
+            "website",
+            "web site",
+            "ecommerce",
+            "e-commerce",
+            "payment",
+            "admin",
+            "dashboard",
+            "crm",
+            "app",
+            "application",
+            "api",
+            "database",
+            "booking",
+            "automation",
+            "chatbot",
+            "seo",
+            "hosting",
+            "domain",
+            "landing",
+            "redesign",
+            "maintenance",
+        )
+        if not lead.need and any(term in lowered for term in development_terms):
+            lead.need = message.strip()[:240]
+        if not lead.project_type:
+            if "ecommerce" in lowered or "e-commerce" in lowered:
+                lead.project_type = "Ecommerce website"
+            elif "dashboard" in lowered or "admin" in lowered:
+                lead.project_type = "Dashboard or admin panel"
+            elif "app" in lowered or "application" in lowered:
+                lead.project_type = "Custom application"
+            elif "landing" in lowered:
+                lead.project_type = "Landing page"
+            elif "website" in lowered or "web site" in lowered:
+                lead.project_type = "Business website"
+        if lead.name and lead.need and lead.budget and lead.status not in {
+            "agreed",
+            "not_agreed",
+            "needs_team",
+        }:
+            lead.status = "qualified"
+        elif lead.need and lead.status not in {"agreed", "not_agreed", "needs_team"}:
+            lead.status = "collecting"
+        return lead
+
+    def _is_repeated_intro(self, reply: str) -> bool:
+        normalized = reply.strip()
+        if not normalized:
+            return False
+        return "కావిత" in normalized and "డెవలప్" in normalized and "సహాయం" in normalized
+
+    def _development_reply(self, lead: LeadDetails, message: str) -> str:
+        lowered = message.lower()
+        if "ecommerce" in lowered or "e-commerce" in lowered:
+            return (
+                "తప్పకుండా అండి. ఈకామర్స్ వెబ్‌సైట్‌కు ప్రొడక్ట్ లిస్టింగ్, పేమెంట్ గేట్‌వే, "
+                "ఆర్డర్ మేనేజ్‌మెంట్, అడ్మిన్ ప్యానెల్ అవసరం అవుతాయి. మీ బడ్జెట్ రేంజ్ "
+                "ఎంతగా అనుకుంటున్నారు?"
+            )
+        if "payment" in lowered:
+            return (
+                "పేమెంట్ గేట్‌వే ఇంటిగ్రేషన్ చేయవచ్చు అండి. Razorpay లేదా Stripe లాంటివి "
+                "ప్రాజెక్ట్‌కు సరిపోతాయి. మీకు వెబ్‌సైట్‌లో ఇంకే ఫీచర్లు కావాలి?"
+            )
+        if "dashboard" in lowered or "admin" in lowered:
+            return (
+                "అడ్మిన్ ప్యానెల్ లేదా డ్యాష్‌బోర్డ్ చేయవచ్చు అండి. యూజర్ రోల్స్, రిపోర్ట్స్, "
+                "డేటా మేనేజ్‌మెంట్ అవసరమా?"
+            )
+        if lead.need:
+            return (
+                "అర్థమైంది అండి. దీనికి సరైన ఫీచర్లు, డిజైన్, బడ్జెట్ చూసి ప్లాన్ చేయవచ్చు. "
+                "మీ బడ్జెట్ రేంజ్ ఎంతగా అనుకుంటున్నారు?"
+            )
+        return "తప్పకుండా అండి. మీకు కావాల్సిన డెవలప్‌మెంట్ అవసరాన్ని కొంచెం వివరంగా చెప్పగలరా?"
+
+    def _event_instruction(self, event: str) -> str:
+        if event == "caller_message":
+            return (
+                "This is not the first turn. Do not introduce yourself again. "
+                "Answer the caller's latest development requirement first, "
+                "then ask the next useful question."
+            )
+        if event == "no_speech_detected":
+            return "Ask politely to repeat. Do not end the call immediately."
+        return "Start the call with the exact Kavitha/Rubicorn greeting."
+
     def _fallback_reply(self, lead: LeadDetails) -> str:
         if lead.status == "agreed":
-            return "చాలా ధన్యవాదాలు అండి. మా రూబి టీమ్ త్వరలో మీకు తిరిగి కాల్ చేస్తుంది."
+            return "చాలా ధన్యవాదాలు అండి. మా రూబికార్న్ టెక్నాలజీస్ టీమ్ త్వరలో మీకు తిరిగి కాల్ చేస్తుంది."
         if lead.status == "needs_team":
             return "క్షమించండి అండి, దీనిని మా టీమ్‌తో నిర్ధారించి మీకు తిరిగి కాల్ చేస్తాము."
         if not lead.name:
-            return "నమస్కారం అండి. నేను రూబి. మీ పేరు చెప్పగలరా?"
+            return self.initial_greeting()
         if not lead.need:
             return "మీకు వెబ్‌సైట్, ఈకామర్స్, ల్యాండింగ్ పేజ్ లేదా కస్టమ్ వెబ్ యాప్‌లో ఏది కావాలి?"
         if not lead.budget:
@@ -180,16 +285,32 @@ class SarvamAgentService:
 
     def _system_prompt(self) -> str:
         lines = [
-            "నువ్వు రూబి. వెబ్ డెవలప్‌మెంట్ కంపెనీకి చెందిన మర్యాదగల మహిళా వాయిస్ ఏజెంట్.",
+            "నువ్వు కావిత. రూబికార్న్ టెక్నాలజీస్ వెబ్ డెవలప్‌మెంట్ కంపెనీకి చెందిన మర్యాదగల మహిళా వాయిస్ కన్సల్టెంట్.",
             "ఎల్లప్పుడూ స్వచ్ఛమైన, సహజమైన, వినయపూర్వకమైన తెలుగులో మాత్రమే సమాధానం ఇవ్వాలి.",
             "ఇంగ్లీష్ లేదా టెంగ్లిష్ వాడకూడదు. కాలర్ ఇంగ్లీష్‌లో మాట్లాడినా తెలుగులోనే కొనసాగాలి.",
-            "వాయిస్ కాల్ కాబట్టి ప్రతి సమాధానం చిన్నగా, స్పష్టంగా, మృదువుగా ఉండాలి.",
-            "ఒక్కసారికి ఒక్క ప్రశ్న మాత్రమే అడగాలి.",
-            "event call_started అయితే రూబి అని పరిచయం చేసుకుని వెబ్ డెవలప్‌మెంట్ సహాయం గురించి చెప్పి పేరు అడగాలి.",
+            "వాయిస్ కాల్ కాబట్టి ప్రతి సమాధానం సహజంగా, చిన్నగా, స్పష్టంగా, మృదువుగా ఉండాలి.",
+            "ముందుగా కాలర్ చెప్పింది అర్థం చేసుకుని దానికి ఉపయోగకరంగా సమాధానం చెప్పాలి. "
+            "వెంటనే పేరు మాత్రమే అడుగుతూ నిలిచిపోకూడదు.",
+            "caller_message event లో పరిచయం మళ్లీ చెప్పకూడదు. కాలర్ చెప్పిన అవసరానికి ముందుగా సమాధానం ఇవ్వాలి.",
+            "ఒక్కసారికి అవసరమైనప్పుడు ఒక్క ప్రశ్న మాత్రమే అడగాలి, కానీ కాలర్ ప్రశ్న అడిగితే "
+            "ముందుగా దానికి సమాధానం ఇవ్వాలి.",
+            "event call_started అయితే ఖచ్చితంగా ఇలా ప్రారంభించాలి: "
+            "హలో అండి, నేను రూబికార్న్ టెక్నాలజీస్ నుండి కావిత మాట్లాడుతున్నాను. "
+            "మీకు ఏ డెవలప్‌మెంట్ సహాయం కావాలి?",
             "event no_speech_detected అయితే వినిపించలేదని మర్యాదగా చెప్పి మళ్లీ చెప్పమని అడగాలి.",
-            "సేకరించవలసిన వివరాలు: పేరు, ఫోన్, ప్రాజెక్ట్ రకం, అవసరం, బడ్జెట్, టైమ్‌లైన్, కాల్‌బ్యాక్ అంగీకారం.",
-            "వెబ్‌సైట్, ఈకామర్స్, ల్యాండింగ్ పేజ్, డ్యాష్‌బోర్డ్, CRM, హోస్టింగ్, డొమైన్, SEO, పేమెంట్ ఇంటిగ్రేషన్ విషయాలు మాత్రమే మాట్లాడాలి.",
-            "తెలియని లేదా వెబ్ డెవలప్‌మెంట్‌కు సంబంధం లేని ప్రశ్న అయితే టీమ్‌కి కనెక్ట్ చేస్తానని చెప్పి status needs_team చేయాలి.",
+            "కాలర్ అవసరం తెలిసిన తర్వాత మాత్రమే వివరాలు సేకరించాలి: పేరు, ఫోన్, "
+            "ప్రాజెక్ట్ రకం, అవసరం, బడ్జెట్, టైమ్‌లైన్, కాల్‌బ్యాక్ అంగీకారం.",
+            "వెబ్‌సైట్, ఈకామర్స్, ల్యాండింగ్ పేజ్, డ్యాష్‌బోర్డ్, CRM, హోస్టింగ్, "
+            "డొమైన్, SEO, పేమెంట్ ఇంటిగ్రేషన్, మొబైల్ యాప్, API, డేటాబేస్, "
+            "అడ్మిన్ ప్యానెల్, బుకింగ్ సిస్టమ్, ఆటోమేషన్, AI చాట్‌బాట్, "
+            "మెయింటెనెన్స్, రీడిజైన్, స్పీడ్ ఆప్టిమైజేషన్ విషయాల గురించి మాట్లాడగలగాలి.",
+            "అవసరాన్ని బట్టి సరళమైన సలహా ఇవ్వాలి: ఏ టెక్నాలజీ సరిపోతుంది, "
+            "ఏ ఫీచర్లు అవసరం, ప్రాసెస్ ఎలా ఉంటుంది, బడ్జెట్ ఎలా అంచనా వేయాలి, "
+            "టైమ్‌లైన్ ఎలా ప్లాన్ చేయాలి.",
+            "ఫిక్స్‌డ్ ధర లేదా ఖచ్చితమైన డెలివరీ తేదీ హామీ ఇవ్వకూడదు. "
+            "వివరాలు తీసుకుని టీమ్ ఫైనల్ ఎస్టిమేట్ చెప్తుందని చెప్పాలి.",
+            "తెలియని లేదా వెబ్/సాఫ్ట్‌వేర్ డెవలప్‌మెంట్‌కు సంబంధం లేని ప్రశ్న అయితే "
+            "టీమ్‌తో చెక్ చేసి తిరిగి కాల్ చేస్తామని చెప్పి status needs_team చేయాలి.",
             "కస్టమర్ ఒప్పుకుంటే agreed true, status agreed చేయాలి.",
             "కస్టమర్ వద్దు అంటే agreed false, status not_agreed చేయాలి.",
             "JSON మాత్రమే ఇవ్వాలి. ఇతర టెక్స్ట్ ఇవ్వకూడదు.",

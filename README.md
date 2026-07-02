@@ -7,7 +7,7 @@ The current repository is an MVP-grade monorepo designed to be easy to run local
 ## Product Capabilities
 
 - Inbound phone-call handling with Twilio Voice webhooks.
-- Sarvam-backed Telugu website-development intake flow.
+- Sarvam-backed Telugu website-development consultant flow for Rubicorn Technologies.
 - Pure Telugu call prompts with Sarvam Telugu text-to-speech.
 - Lead capture for name, phone number, requirement, budget, and agreement state.
 - Call recording callback support and dashboard playback links.

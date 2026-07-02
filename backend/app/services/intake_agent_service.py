@@ -98,7 +98,7 @@ class IntakeAgentService:
         if lead.agreed is True:
             return self._phrase(
                 language,
-                "చాలా ధన్యవాదాలు అండి. మా రూబి టీమ్ త్వరలో మీకు తిరిగి కాల్ చేస్తుంది.",
+                "చాలా ధన్యవాదాలు అండి. మా రూబికార్న్ టెక్నాలజీస్ టీమ్ త్వరలో మీకు తిరిగి కాల్ చేస్తుంది.",
             )
         if lead.agreed is False:
             return self._phrase(

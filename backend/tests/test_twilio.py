@@ -18,8 +18,8 @@ def test_twilio_voice_webhook_returns_twiml() -> None:
     assert response.headers["content-type"].startswith("application/xml")
     assert "<Response>" in response.text
     assert "<Gather" in response.text
-    assert "నేను రూబి" in response.text
-    assert "మీ పేరు చెప్పగలరా" in response.text
+    assert "కావిత" in response.text
+    assert "రూబికార్న్ టెక్నాలజీస్" in response.text
 
 
 def test_twilio_gather_stores_readable_lead_details() -> None:

@@ -6,7 +6,7 @@ export default function VoicesPage() {
   return (
     <AppShell>
       <PageHeader title="Voices" description="Language and voice behavior for calls." />
-      <FeaturePage title="Voices And Language" description="Sarvam Telugu voice is active for Rubi phone prompts. Twilio still handles call routing and speech capture." status="Beta">
+      <FeaturePage title="Voices And Language" description="Sarvam Telugu voice is active for Kavitha's Rubicorn Technologies phone prompts. Twilio still handles call routing and speech capture." status="Beta">
         <div className="grid gap-3 text-sm">
           <InfoRow label="Primary language" value="Pure Telugu" />
           <InfoRow label="Voice provider" value="Sarvam Bulbul Telugu voice" />
