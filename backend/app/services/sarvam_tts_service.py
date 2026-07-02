@@ -9,6 +9,9 @@ from app.core.config import settings
 
 
 class SarvamTTSService:
+    def __init__(self) -> None:
+        self._audio_cache: dict[str, bytes] = {}
+
     def enabled(self) -> bool:
         return bool(settings.sarvam_api_key and "pytest" not in sys.modules)
 
@@ -23,8 +26,13 @@ class SarvamTTSService:
         if not settings.sarvam_api_key:
             raise RuntimeError("Sarvam API key is not configured")
 
+        cache_key = text[:500]
+        cached = self._audio_cache.get(cache_key)
+        if cached:
+            return cached
+
         body = {
-            "inputs": [text[:500]],
+            "inputs": [cache_key],
             "target_language_code": "te-IN",
             "speaker": settings.sarvam_tts_speaker,
             "model": settings.sarvam_tts_model,
@@ -50,7 +58,9 @@ class SarvamTTSService:
                 audio = str(data.get("audio") or data.get("audio_base64") or "")
         if not audio:
             raise RuntimeError("Sarvam TTS did not return audio")
-        return base64.b64decode(audio)
+        decoded = base64.b64decode(audio)
+        self._audio_cache[cache_key] = decoded
+        return decoded
 
     def _signature(self, text: str) -> str:
         secret = settings.jwt_secret.encode("utf-8")

@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 from datetime import UTC, datetime
 from typing import Any
@@ -56,6 +57,20 @@ class SarvamAgentService:
     async def process(self, call: StoredCall, message: str) -> tuple[LeadDetails, str, str, bool]:
         return await self._generate(call=call, message=message, event="caller_message")
 
+    def try_fast_response(
+        self,
+        call: StoredCall,
+        message: str,
+    ) -> tuple[LeadDetails, str, str, bool] | None:
+        if not self._has_fast_development_signal(message):
+            return None
+        lead = self._hydrate_development_need(call.lead.model_copy(deep=True), message)
+        lead.language = "te-IN"
+        lead.preferred_language = lead.preferred_language or "Telugu"
+        reply = self._development_reply(lead, message)
+        should_end = lead.status in {"agreed", "not_agreed", "needs_team"}
+        return lead, reply, "te-IN", should_end
+
     async def _generate(
         self,
         call: StoredCall,
@@ -93,13 +108,13 @@ class SarvamAgentService:
         body = {
             "model": settings.sarvam_chat_model,
             "temperature": 0.25,
-            "max_tokens": 180,
+            "max_tokens": 120,
             "messages": [
                 {"role": "system", "content": self._system_prompt()},
                 {"role": "user", "content": self._user_payload(call, message, event)},
             ],
         }
-        async with httpx.AsyncClient(timeout=8) as client:
+        async with httpx.AsyncClient(timeout=5) as client:
             response = await client.post(
                 "https://api.sarvam.ai/v1/chat/completions",
                 headers={
@@ -180,9 +195,12 @@ class SarvamAgentService:
             lead.status = "collecting"
         return lead
 
-    def _hydrate_development_need(self, lead: LeadDetails, message: str) -> LeadDetails:
+    def _has_fast_development_signal(self, message: str) -> bool:
         lowered = message.lower()
-        development_terms = (
+        return any(term in lowered for term in self._development_terms())
+
+    def _development_terms(self) -> tuple[str, ...]:
+        return (
             "website",
             "web site",
             "ecommerce",
@@ -204,8 +222,27 @@ class SarvamAgentService:
             "landing",
             "redesign",
             "maintenance",
+            "budget",
+            "cost",
+            "price",
+            "timeline",
+            "time",
         )
-        if not lead.need and any(term in lowered for term in development_terms):
+
+    def _hydrate_development_need(self, lead: LeadDetails, message: str) -> LeadDetails:
+        lowered = message.lower()
+        if not lead.name:
+            name = self._extract_name(message)
+            if name:
+                lead.name = name
+        if not lead.budget:
+            budget = self._extract_budget(message)
+            if budget:
+                lead.budget = budget
+        agreement = self._extract_agreement(message)
+        if agreement is not None:
+            lead.agreed = agreement
+        if not lead.need and any(term in lowered for term in self._development_terms()):
             lead.need = message.strip()[:240]
         if not lead.project_type:
             if "ecommerce" in lowered or "e-commerce" in lowered:
@@ -218,7 +255,11 @@ class SarvamAgentService:
                 lead.project_type = "Landing page"
             elif "website" in lowered or "web site" in lowered:
                 lead.project_type = "Business website"
-        if lead.name and lead.need and lead.budget and lead.status not in {
+        if lead.agreed is True:
+            lead.status = "agreed"
+        elif lead.agreed is False:
+            lead.status = "not_agreed"
+        elif lead.name and lead.need and lead.budget and lead.status not in {
             "agreed",
             "not_agreed",
             "needs_team",
@@ -228,6 +269,39 @@ class SarvamAgentService:
             lead.status = "collecting"
         return lead
 
+    def _extract_name(self, message: str) -> str | None:
+        patterns = [
+            r"(?:my name is|name is|i am|this is|నేను)\s+([A-Za-z .]{2,40})",
+            r"(?:naa peru|na peru)\s+([A-Za-z .]{2,40})",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, message, flags=re.IGNORECASE)
+            if match:
+                return match.group(1).strip(" .")
+        return None
+
+    def _extract_budget(self, message: str) -> str | None:
+        match = re.search(
+            r"(?:₹|rs\.?|inr)?\s?(\d+(?:,\d+)*(?:\.\d+)?)\s?(k|lakh|lakhs|cr|crore|crores)?",
+            message,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return None
+        amount = match.group(1)
+        suffix = match.group(2) or ""
+        return f"{amount} {suffix}".strip()
+
+    def _extract_agreement(self, message: str) -> bool | None:
+        lowered = message.lower()
+        positive = ("yes", "ok", "okay", "agreed", "agree", "fine", "proceed", "sure", "సరే")
+        negative = ("no", "not interested", "later", "లేదు", "వద్దు", "కాదు")
+        if any(term in lowered for term in positive):
+            return True
+        if any(term in lowered for term in negative):
+            return False
+        return None
+
     def _is_repeated_intro(self, reply: str) -> bool:
         normalized = reply.strip()
         if not normalized:
@@ -236,26 +310,48 @@ class SarvamAgentService:
 
     def _development_reply(self, lead: LeadDetails, message: str) -> str:
         lowered = message.lower()
+        if lead.status == "agreed":
+            return "చాలా ధన్యవాదాలు అండి. మా టీమ్ త్వరలో మీకు తిరిగి కాల్ చేస్తుంది."
+        if lead.status == "not_agreed":
+            return "పరవాలేదు అండి. అవసరం ఉంటే మా టీమ్ తర్వాత సహాయం చేస్తుంది."
         if "ecommerce" in lowered or "e-commerce" in lowered:
             return (
-                "తప్పకుండా అండి. ఈకామర్స్ వెబ్‌సైట్‌కు ప్రొడక్ట్ లిస్టింగ్, పేమెంట్ గేట్‌వే, "
-                "ఆర్డర్ మేనేజ్‌మెంట్, అడ్మిన్ ప్యానెల్ అవసరం అవుతాయి. మీ బడ్జెట్ రేంజ్ "
-                "ఎంతగా అనుకుంటున్నారు?"
+                "తప్పకుండా అండి. ఈకామర్స్‌కు ప్రొడక్ట్ లిస్టింగ్, పేమెంట్, ఆర్డర్లు, "
+                "అడ్మిన్ ప్యానెల్ అవసరం అవుతాయి. మీ బడ్జెట్ రేంజ్ ఎంత?"
             )
         if "payment" in lowered:
             return (
-                "పేమెంట్ గేట్‌వే ఇంటిగ్రేషన్ చేయవచ్చు అండి. Razorpay లేదా Stripe లాంటివి "
-                "ప్రాజెక్ట్‌కు సరిపోతాయి. మీకు వెబ్‌సైట్‌లో ఇంకే ఫీచర్లు కావాలి?"
+                "పేమెంట్ గేట్‌వే చేయవచ్చు అండి. Razorpay లేదా Stripe సరిపోతాయి. "
+                "ఇంకే ఫీచర్లు కావాలి?"
             )
         if "dashboard" in lowered or "admin" in lowered:
             return (
-                "అడ్మిన్ ప్యానెల్ లేదా డ్యాష్‌బోర్డ్ చేయవచ్చు అండి. యూజర్ రోల్స్, రిపోర్ట్స్, "
+                "అడ్మిన్ ప్యానెల్ చేయవచ్చు అండి. యూజర్ రోల్స్, రిపోర్ట్స్, "
                 "డేటా మేనేజ్‌మెంట్ అవసరమా?"
+            )
+        if "app" in lowered or "application" in lowered:
+            return (
+                "కస్టమ్ యాప్ చేయవచ్చు అండి. లాగిన్, డేటాబేస్, అడ్మిన్ ప్యానెల్ అవసరమా?"
+            )
+        if "seo" in lowered:
+            return "SEO-ready structure, speed, meta tags, analytics సెట్ చేయవచ్చు అండి. మీది కొత్త సైటా?"
+        if "domain" in lowered or "hosting" in lowered:
+            return "డొమైన్, హోస్టింగ్ సెటప్‌లో కూడా సహాయం చేస్తాం అండి. మీ దగ్గర ఇప్పటికే డొమైన్ ఉందా?"
+        if "budget" in lowered or "cost" in lowered or "price" in lowered:
+            return (
+                "ధర ఫీచర్లపై ఆధారపడుతుంది అండి. ముందుగా మీ అవసరం, పేజీలు, ఫీచర్లు తెలుసుకుని "
+                "టీమ్ ఫైనల్ ఎస్టిమేట్ చెప్తుంది."
+            )
+        if "timeline" in lowered or "time" in lowered:
+            return "టైమ్‌లైన్ స్కోప్‌పై ఆధారపడుతుంది అండి. మీకు ఎప్పటిలో లాంచ్ కావాలి?"
+        if "website" in lowered or "web site" in lowered:
+            return (
+                "వెబ్‌సైట్ చేయవచ్చు అండి. పేజీలు, డిజైన్, ఫారమ్, WhatsApp, SEO అవసరమా?"
             )
         if lead.need:
             return (
-                "అర్థమైంది అండి. దీనికి సరైన ఫీచర్లు, డిజైన్, బడ్జెట్ చూసి ప్లాన్ చేయవచ్చు. "
-                "మీ బడ్జెట్ రేంజ్ ఎంతగా అనుకుంటున్నారు?"
+                "అర్థమైంది అండి. దీనికి సరైన ఫీచర్లు, డిజైన్, బడ్జెట్ చూసి ప్లాన్ చేస్తాం. "
+                "మీ బడ్జెట్ రేంజ్ ఎంత?"
             )
         return "తప్పకుండా అండి. మీకు కావాల్సిన డెవలప్‌మెంట్ అవసరాన్ని కొంచెం వివరంగా చెప్పగలరా?"
 

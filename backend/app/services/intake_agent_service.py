@@ -24,6 +24,19 @@ class IntakeAgentService:
         if not call:
             raise KeyError(call_id)
 
+        fast_response = sarvam_agent_service.try_fast_response(call, message)
+        if fast_response:
+            lead, response, response_language, _should_end = fast_response
+            lead.phone = lead.phone or from_number
+            lead.language = response_language
+            storage_service.update_lead(call_id, lead)
+            stored_call = storage_service.get_call(call_id)
+            if stored_call:
+                stored_call.language = response_language
+                storage_service.upsert_call(stored_call)
+            storage_service.append_transcript(call_id, "assistant", response, response_language)
+            return response
+
         try:
             lead, response, response_language, _should_end = await sarvam_agent_service.process(
                 call,
